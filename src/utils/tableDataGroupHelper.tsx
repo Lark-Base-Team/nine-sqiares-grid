@@ -50,15 +50,20 @@ export class TableDataGroupHelper {
     async loadAllRecordsForTable(table: ITable, dataSourceConfig: IDatasourceConfigType): Promise<IRecord[]> {
         let allRecords: IRecord[] = [];
         // 分页加载，每次加载 5000 条 直到加载完数据
-        const loadRecordsByPage = async (lastRecordId: string) => {
-            let params: IGetRecordsParams = { pageSize: 5000 , pageToken: lastRecordId }
+        const loadRecordsByPage = async (lastRecordId: string) => {            
+            let params = { pageSize: 200 } as any
             if (dataSourceConfig.dataRange && dataSourceConfig.dataRange !== 'All') {
                 params.viewId = dataSourceConfig.dataRange
             }
+            if (lastRecordId.length > 0){
+                params.pageToken = lastRecordId
+            }
             console.log('load data params', params, dataSourceConfig.dataRange)
-            const { hasMore , records } = await table.getRecords(params);
-            allRecords.push(...records)
-            if (hasMore) {
+            const res = await table.getRecordListByPage(params) as any;
+            console.log(res);
+            
+            allRecords.push(...res.records.recordList)
+            if (res.hasMore) {
                 const last = allRecords[allRecords.length - 1];
                 await loadRecordsByPage(last.recordId)
             }
