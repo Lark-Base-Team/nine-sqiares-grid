@@ -1,4 +1,4 @@
-import {base, IGetRecordsParams, IRecord, ITable} from "@lark-base-open/js-sdk";
+import {base as baseSdk, IGetRecordsParams, IRecord, ITable, bitable as bitableSdk} from "@lark-base-open/js-sdk";
 import {IDatasourceConfigType} from "../store";
 
 export interface IDatasourceConfigCacheType {
@@ -21,6 +21,7 @@ export interface IDatasourceConfigCacheType {
 }
 
 export class TableDataGroupHelper {
+    constructor(private bitableRef: React.MutableRefObject<typeof bitableSdk | null>) {}
 
     supportedFiled(fieldType: number): Boolean {
         // 1 文本，3 单选  11 人员  19 查找引用  20公式
@@ -32,6 +33,7 @@ export class TableDataGroupHelper {
         let result: { tableId: string, fields: any[] } | undefined = undefined;
         const findTableItem = tableList[index];
         if (!findTableItem) return  undefined;
+        const base = this.bitableRef.current?.base || baseSdk;
         const table = await base.getTable(findTableItem.tableId);
         const fields = (await table.getFieldMetaList()) as any[]
         // 找到 有两个以上 数字字段的表
@@ -182,6 +184,8 @@ export class TableDataGroupHelper {
     }
 
     async prepareData(tableId: string, datasource: any,  datasourceConfigCache: any) {
+        console.log('====prepare data', this.bitableRef)
+        const base = this.bitableRef.current?.base || baseSdk;
         const table = await base.getTable(tableId);
         const fields = await table.getFieldMetaList()
         // console.log('prepare data fields',fields);
