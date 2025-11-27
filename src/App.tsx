@@ -126,14 +126,14 @@ function App() {
     async function initConfigData(id: string | null) {
         console.log('-----------------------------------------------更新表格数据', id, dashboard.state);
         //LIGHT = "LIGHT", DARK = "DARK"
-        const theme = await bitable.bridge.getTheme()
-        if (theme === 'LIGHT') {
+        const theme = await dashboard.getTheme()
+        if (theme.theme === 'LIGHT') {
             datasource.theme = 'light'
         } else {
             datasource.theme = 'dark'
         }
         console.log(theme, '++++++++++++++++++')
-        updateTheme(theme.toLocaleLowerCase())
+        updateTheme(theme.theme.toLocaleLowerCase())
         const tableIdList = await base.getTableList();
         // console.log('获取表 id 列表: ',tableIdList)
         const tableList = await Promise.all(getTableList(tableIdList));
@@ -189,16 +189,27 @@ function App() {
     }
 
     useEffect(() => {
-        bitable.bridge.onThemeChange((event) => {
-            console.log('theme change', event.data.theme);
-            if (event.data.theme === 'LIGHT') {
+        // bitable.bridge.onThemeChange((event) => {
+        //     console.log('theme change', event.data.theme);
+        //     if (event.data.theme === 'LIGHT') {
+        //         datasource.theme = 'light'
+        //     } else {
+        //         datasource.theme = 'dark'
+        //     }
+        //     updateTheme(event.data.theme.toLocaleLowerCase())
+        //     updateDatasource({ ...(datasource as any) })
+        // });
+        dashboard.onThemeChange(theme => {
+            console.log('theme change', theme.data.theme);
+            if (theme.data.theme === 'LIGHT') {
                 datasource.theme = 'light'
             } else {
                 datasource.theme = 'dark'
             }
-            updateTheme(event.data.theme.toLocaleLowerCase())
+            updateTheme(theme.data.theme.toLocaleLowerCase())
             updateDatasource({ ...(datasource as any) })
         });
+
         async function getConfig(p: any) {
 
             console.log('========1get config', p)
