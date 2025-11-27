@@ -2,6 +2,9 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import translationZH from '../public/locales/zh-CN/translation.json';
 import translationEN from '../public/locales/en/translation.json';
+import translationJA from '../public/locales/ja/translation.json';
+
+
 
 export function initI18n(lang: any) {
   // 初始化 i18n
@@ -12,6 +15,9 @@ export function initI18n(lang: any) {
       },
       zh: {
         translation: translationZH,
+      },
+      ja: {
+        translation: translationJA,
       },
     },
     lng: lang, // 设置默认语言

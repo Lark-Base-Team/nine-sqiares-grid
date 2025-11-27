@@ -3,7 +3,7 @@
   "tab_name1": "数据设置",
   "tab_name2": "文本设置",
   "data_source": "数据源",
-  "data_range": "数据范围",
+  "data_range": "数据范围（预览阶段只展示400条记录）",
   "view_all": "查看全部",
   "personnel": "人员",
   "employees": "员工",

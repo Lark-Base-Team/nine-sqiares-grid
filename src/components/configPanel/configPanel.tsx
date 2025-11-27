@@ -115,7 +115,8 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
         return [...list, ...[{id: '', name: 'none'}]]
     }
 
-    const dataHelper = new TableDataGroupHelper()
+    const [progress, setProgress] = useState({ total: 0, current: 0 })
+    const dataHelper = new TableDataGroupHelper({ setProgress })
 
     const chooseTable = async (tableId: string) => {
         console.log('on data source selected ', tableId, datasourceConfig)

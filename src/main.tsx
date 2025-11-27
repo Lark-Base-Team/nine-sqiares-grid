@@ -22,11 +22,9 @@ function LoadApp() {
     }, []);
 
     return (
-        <StrictMode>
-            <Suspense fallback="loading">
-                <App />
-            </Suspense>
-        </StrictMode>
+        <Suspense fallback="loading">
+            <App />
+        </Suspense>
     );
 }
 
