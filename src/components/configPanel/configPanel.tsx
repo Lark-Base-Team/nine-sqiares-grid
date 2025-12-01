@@ -76,7 +76,7 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
     const [groupFieldId, setGroupFieldId] = useState<string>(datasourceConfig.groupField)
     const [tableLoading, setTableLoading] = useState<boolean>(false)
 
-    console.log('====datasourceConfig', datasourceConfig)
+    const hasBaseChange = useRef<boolean>(false);
 
     // 保存竖轴选择完字段后子分类的选项数据
     const [verticalCategoryOptions, setVerticalCategoryOptions] = useState<{ [key: string]: any }[]>([])
@@ -125,7 +125,8 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
 
     const handleBaseChange = (baseToken: string | undefined) => {
         setTableLoading(true)
-        updateDatasourceConfig({ ...initialDatasourceConfig, baseToken })
+        updateDatasourceConfig({ ...initialDatasourceConfig, baseToken });
+        hasBaseChange.current = true;
     }
 
     const chooseTable = async (tableId: string) => {
@@ -198,16 +199,19 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
         datasource.allRecords[tableId] = allRecords
         datasourceConfig.dataRange = 'All';
         setDataRangeId('All');
-        console.log('change table---------', datasource, datasourceConfig, fields, fields.filter(item => dataHelper.supportedFiled(item.type)))
+        // console.log('change table---------', datasource, datasourceConfig, fields, fields.filter(item => dataHelper.supportedFiled(item.type)))
         updateDatasource((datasource as any))
         updateDatasourceConfig({...(datasourceConfig as any)})
         setFields(addNoneForList(fields.filter(item => dataHelper.supportedFiled(item.type))))
         setTableLoading(false)
     }
 
-    useEffect(() => {
+     useEffect(() => {
+        if(!hasBaseChange.current) {
+            return;
+        }
         chooseTable(datasourceConfig.tableId)
-    }, [datasourceConfig.tableId])
+    }, [datasourceConfig.tableId]);
 
     const tableDataRangeChange = (range: string) => {
         datasourceConfig.dataRange = range
@@ -760,7 +764,7 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
                                                 defaultValue={tableId}
                                                 value={tableId}
                                                 disabled={tableLoading}
-                                                renderSelectedItem={tableLoading ? () => <Spin /> :renderTableSelectedItem}
+                                                renderSelectedItem={tableLoading ? () => <Spin /> : renderTableSelectedItem}
                                                 onChange={async (selectValue) => chooseTable(selectValue as string)}
                                                 optionList={tables.map((source) => ({
                                                     value: source.tableId,

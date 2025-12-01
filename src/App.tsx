@@ -14,8 +14,6 @@ function App() {
 
     // 类型与数据
     const { datasourceConfig, updateDatasourceConfig } = useDatasourceConfigStore((state) => state);
-    // console.log('====datasourceConfig', datasourceConfig)
-    // console.log('====datasource', datasource)
 
     // 样式配置数据
     const { textConfig, updateTextConfig } = useTextConfigStore((state) => state);
@@ -43,6 +41,7 @@ function App() {
     const [isLoading, setIsLoading] = useState(true)
     const [progress, setProgress] = useState({ total: 0, current: 0 });
     const [isMultipleBase, setIsMultipleBase] = useState<boolean | undefined>(undefined);
+    const [isGetConfigReady, setIsGetConfigReady] = useState<boolean>(false);
 
     const bitableRef = useRef<typeof bitableSdk | null>(bitableSdk);
     const dashboard = bitableRef.current?.dashboard || dashboardSdk;
@@ -152,6 +151,9 @@ function App() {
         }
         console.log(theme, '++++++++++++++++++')
         updateTheme(theme.theme.toLocaleLowerCase())
+         if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
+            return;
+        }
         const tableIdList = await base.getTableList();
         // console.log('获取表 id 列表: ',tableIdList)
         const tableList = await Promise.all(getTableList(tableIdList));
@@ -245,7 +247,6 @@ function App() {
             if (dashboard?.state !== DashboardState.Create) {
                 // console.log('load config')
                 dashboard?.getConfig().then((config) => {
-                    console.log('=====dashboard?.getConfig', config)
                     const customConfig: any = config.customConfig
                     const dataConditions: IDataCondition[] = config.dataConditions
                     // 主要处理 复制模版 custom config 中的数据不会被动态替换，导致复制模版获取的 table id 不对
@@ -261,9 +262,10 @@ function App() {
                     console.log('获取到 config start========：', config, textConfig, datasourceConfig, { ...datasourceConfig, ...customConfig.datasourceConfig });
                     updateDatasourceConfig({ ...datasourceConfig, ...customConfig.datasourceConfig })
                     updateTextConfig({ ...textConfig, ...customConfig.textConfig })
+                    setIsGetConfigReady(true);
                     datasourceConfigCache = { ...datasourceConfig, ...customConfig.datasourceConfig }
                     console.log('获取到 config end=====：', config, datasourceConfigCache);
-                    initConfigData(customConfig.datasourceConfig.tableId).then();
+                    initConfigData(customConfig.datasourceConfig.tableId, customConfig.datasourceConfig.baseToken).then();
                 })
             } else {
                  const getBaseToken = async () => {
@@ -288,10 +290,6 @@ function App() {
                 initConfigData(null, initialBaseToken).then();
             }
         }
-        // getConfig().then();
-        // dashboard?.onConfigChange(getConfig);
-        // // 监控数据变化
-        // dashboard?.onDataChange(getConfig);
 
         const debouncedGetConfig = debounce(getConfig, 500, {
             leading: false,
@@ -302,7 +300,7 @@ function App() {
         dashboard?.onConfigChange(() => debouncedGetConfig(2));
         // 监控数据变化
         dashboard?.onDataChange(() => debouncedGetConfig(3));
-    }, [isMultipleBase]);
+    }, [isMultipleBase, isGetConfigReady]);
 
     useEffect(() => {
        (async () => {

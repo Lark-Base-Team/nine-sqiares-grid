@@ -207,7 +207,6 @@ export class TableDataGroupHelper {
     }
 
     async prepareData(tableId: string, datasource: any,  datasourceConfigCache: any) {
-        console.log('====prepare data', this.bitableRef)
         const base = this.bitableRef.current?.base || baseSdk;
         const table = await base.getTable(tableId);
         const fields = await table.getFieldMetaList()
