@@ -1,10 +1,11 @@
 import {
-    dashboard,
+    dashboard as dashboardSdk,
     ThemeModeType,
     SourceType,
     IDataRange,
     DashboardState,
-    base,
+    base as baseSdk,
+    bitable as bitableSdk,
 } from '@lark-base-open/js-sdk';
 import React from "react"
 import {useEffect, useRef, FC, useState} from 'react';
@@ -15,12 +16,13 @@ import {
     Input,
     Button,
     Divider,
-    Select, Toast
+    Select, Toast,
+    Spin
 } from '@douyinfe/semi-ui';
 import Icon, {IconDeleteStroked, IconPlus} from '@douyinfe/semi-icons';
 import {IconTick} from '@douyinfe/semi-icons';
 
-import {useDatasourceConfigStore, useTextConfigStore, useDatasourceStore} from '../../store';
+import {useDatasourceConfigStore, useTextConfigStore, useDatasourceStore, initialDatasourceConfig} from '../../store';
 
 import deleteIcon from '../../assets/icon_delete-trash_outlined.svg';
 import addIcon from '../../assets/icon_add_outlined.svg';
@@ -39,28 +41,29 @@ import IconSelect from '../../assets/icon_select.svg?react';
 import IconFunction from '../../assets/icon_function.svg?react';
 import IconFindReference from '../../assets/icon_find_reference.svg?react';
 import IconNumber from '../../assets/icon_number.svg?react';
+import BaseSelector from '../BaseSelector';
 
 
 interface IConfigPanelPropsType {
     dataRanges: { [key: string]: string | number }[],
     tables: any[];
+    isMultipleBase?: boolean;
+    bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
 }
 
 
 export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
 
-    const {tables, dataRanges} = props;
-
+    const {tables, dataRanges, isMultipleBase, bitableRef } = props;
+    const base = bitableRef.current?.base || baseSdk;
+    const dashboard = bitableRef.current?.dashboard || dashboardSdk;
 
     const {t, i18n} = useTranslation();
-
 
     // 类型与数据
     const {datasourceConfig, updateDatasourceConfig} = useDatasourceConfigStore((state) => state);
     const {datasource, updateDatasource} = useDatasourceStore((state) => state);
 
-
-    const [tableList, setTableList] = useState(tables);
     const [tableId, setTableId] = useState<string>(datasourceConfig.tableId)
     const [dataRangeId, setDataRangeId] = useState<string>(datasourceConfig.dataRange)
     const [dataRangeList, setDataRangeList] = useState(dataRanges);
@@ -71,7 +74,9 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
     const [horizontalFieldId, setHorizontalFieldId] = useState<string>(datasourceConfig.horizontalField)
     const [verticalFieldId, setVerticalFieldId] = useState<string>(datasourceConfig.verticalField)
     const [groupFieldId, setGroupFieldId] = useState<string>(datasourceConfig.groupField)
+    const [tableLoading, setTableLoading] = useState<boolean>(false)
 
+    const hasBaseChange = useRef<boolean>(false);
 
     // 保存竖轴选择完字段后子分类的选项数据
     const [verticalCategoryOptions, setVerticalCategoryOptions] = useState<{ [key: string]: any }[]>([])
@@ -116,10 +121,18 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
     }
 
     const [progress, setProgress] = useState({ total: 0, current: 0 })
-    const dataHelper = new TableDataGroupHelper({ setProgress })
+    const dataHelper = new TableDataGroupHelper({ setProgress, bitableRef })
+
+    const handleBaseChange = (baseToken: string | undefined) => {
+        setTableLoading(true)
+        updateDatasourceConfig({ ...initialDatasourceConfig, baseToken });
+        hasBaseChange.current = true;
+    }
 
     const chooseTable = async (tableId: string) => {
         console.log('on data source selected ', tableId, datasourceConfig)
+        setTableLoading(true)
+        setTableId('')
         let fields: any[] = [];
         if (datasource.fields[tableId] && datasource.fields[tableId].length > 0) {
             fields = datasource.fields[tableId];
@@ -186,11 +199,19 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
         datasource.allRecords[tableId] = allRecords
         datasourceConfig.dataRange = 'All';
         setDataRangeId('All');
-        console.log('change table---------', datasource, datasourceConfig, fields, fields.filter(item => dataHelper.supportedFiled(item.type)))
+        // console.log('change table---------', datasource, datasourceConfig, fields, fields.filter(item => dataHelper.supportedFiled(item.type)))
         updateDatasource((datasource as any))
         updateDatasourceConfig({...(datasourceConfig as any)})
         setFields(addNoneForList(fields.filter(item => dataHelper.supportedFiled(item.type))))
+        setTableLoading(false)
     }
+
+     useEffect(() => {
+        if(!hasBaseChange.current) {
+            return;
+        }
+        chooseTable(datasourceConfig.tableId)
+    }, [datasourceConfig.tableId]);
 
     const tableDataRangeChange = (range: string) => {
         datasourceConfig.dataRange = range
@@ -653,6 +674,7 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
             dataConditions: [
                 {
                     tableId: datasourceConfig.tableId,
+                    baseToken: datasourceConfig.baseToken,
                 },
             ],
             customConfig: {
@@ -726,6 +748,14 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
                                     autoComplete="off"
                                 >
                                     <div className="flex-column form-list">
+                                        {isMultipleBase &&
+                                            <div className="selection-field">
+                                                <BaseSelector
+                                                    baseToken={datasourceConfig.baseToken!}
+                                                    onChange={handleBaseChange}
+                                                />
+                                            </div>
+                                        }
                                         <div className="selection-field">
                                             <div className="selection-title"
                                                  style={{marginBottom: '8px'}}>{t('data_source')}</div>
@@ -733,9 +763,10 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
                                                 style={{width: 300, ...textColorStyle()}}
                                                 defaultValue={tableId}
                                                 value={tableId}
-                                                renderSelectedItem={renderTableSelectedItem}
+                                                disabled={tableLoading}
+                                                renderSelectedItem={tableLoading ? () => <Spin /> : renderTableSelectedItem}
                                                 onChange={async (selectValue) => chooseTable(selectValue as string)}
-                                                optionList={tableList.map((source) => ({
+                                                optionList={tables.map((source) => ({
                                                     value: source.tableId,
                                                     label: source.tableName,
                                                 }))}
@@ -753,7 +784,8 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
                                                 defaultValue={dataRangeId}
                                                 value={dataRangeId}
                                                 onChange={(selectedValue) => tableDataRangeChange(selectedValue as string)}
-                                                renderSelectedItem={renderTableSelectedItem}
+                                                disabled={tableLoading}
+                                                renderSelectedItem={tableLoading ? () => <Spin /> :renderTableSelectedItem}
                                                 optionList={dataRangeList.map((range) => {
                                                     const {type, viewName, viewId} = range as any;
                                                     if (type === SourceType.ALL) {
@@ -784,7 +816,8 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
                                                 defaultValue={personnelFieldId}
                                                 value={personnelFieldId}
                                                 onChange={async (selectValue) => choosePersonField(selectValue as string)}
-                                                renderSelectedItem={renderPersonSelectedItem}
+                                                disabled={tableLoading}
+                                                renderSelectedItem={tableLoading ? () => <Spin /> :renderPersonSelectedItem}
                                                 optionList={fields.map((item) => {
                                                     const {id, name, disabled, type} = item as any;
                                                     return {
@@ -810,7 +843,8 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
                                                     remote={true}
                                                     defaultValue={horizontalFieldId}
                                                     value={horizontalFieldId}
-                                                    renderSelectedItem={renderSelectOptionSelectedItem}
+                                                    disabled={tableLoading}
+                                                    renderSelectedItem={tableLoading ? () => <Spin /> :renderSelectOptionSelectedItem}
                                                     onChange={async (selectValue) => chooseHorizontalAxisField(selectValue as string)}
                                                     optionList={fields.map((item) => {
                                                         const {id, name, disabled, type} = item as any;

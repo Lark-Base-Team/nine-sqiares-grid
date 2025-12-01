@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NineSquaresGrid } from "./components/nineSquaresGrid";
 import { ConfigPanel } from "./components/configPanel";
-import { base, dashboard, DashboardState, bitable, IDataCondition, ITable } from "@lark-base-open/js-sdk";
+import { base as baseSdk, dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, IDataCondition, ITable, bridge, IBase, IDashboard, workspace} from "@lark-base-open/js-sdk";
 import { useDatasourceConfigStore, useDatasourceStore, useTextConfigStore } from './store';
 import { TableDataGroupHelper, IDatasourceConfigCacheType } from "./utils/tableDataGroupHelper";
 import Icon, { IconDeleteStroked, IconPlus } from '@douyinfe/semi-icons';
@@ -38,8 +38,21 @@ function App() {
         groupField: ''
     };
 
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true)
     const [progress, setProgress] = useState({ total: 0, current: 0 });
+    const [isMultipleBase, setIsMultipleBase] = useState<boolean | undefined>(undefined);
+    const [isGetConfigReady, setIsGetConfigReady] = useState<boolean>(false);
+
+    const bitableRef = useRef<typeof bitableSdk | null>(bitableSdk);
+    const dashboard = bitableRef.current?.dashboard || dashboardSdk;
+    const hasInit  = useRef<boolean>(false);
+
+    useEffect(() => {
+        (async () => {
+            const env = await bridge.getEnv();
+            setIsMultipleBase(env.needChangeBase ?? false);
+        })();
+    }, []);
 
     // 获取表格列表
     const getTableList = useCallback((tableIdList: any) => {
@@ -52,7 +65,7 @@ function App() {
         });
     }, []);
 
-    const dataHelper = new TableDataGroupHelper({ setProgress })
+    const dataHelper = new TableDataGroupHelper({ setProgress, bitableRef })
 
     function configRenderData(tableId: string, fields: any[]): void {
         const userFields = fields.filter(field => field.type === 11)
@@ -123,9 +136,13 @@ function App() {
         }
     }
 
-    async function initConfigData(id: string | null) {
-        console.log('-----------------------------------------------更新表格数据', id, dashboard.state);
+    async function initConfigData(id: string | null, baseToken?: string) {
         //LIGHT = "LIGHT", DARK = "DARK"
+        if (!bitableRef.current) {
+            return;
+        }
+        const base = bitableRef.current.base;
+        const dashboard = bitableRef.current.dashboard;
         const theme = await dashboard.getTheme()
         if (theme.theme === 'LIGHT') {
             datasource.theme = 'light'
@@ -134,6 +151,9 @@ function App() {
         }
         console.log(theme, '++++++++++++++++++')
         updateTheme(theme.theme.toLocaleLowerCase())
+         if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
+            return;
+        }
         const tableIdList = await base.getTableList();
         // console.log('获取表 id 列表: ',tableIdList)
         const tableList = await Promise.all(getTableList(tableIdList));
@@ -179,9 +199,19 @@ function App() {
             await dataHelper.prepareData(tableId, datasource, datasourceConfigCache)
             updateDatasource({ ...(datasource as any) })
         }
-        console.log('------------------------------------------------------数据已经准备好: ', datasource, new Date().toISOString())
+        updateDatasourceConfig({ ...datasourceConfig, baseToken })
+        console.log('------------------------------------------------------数据已经准备好: ',datasource, new Date().toISOString())
         // 强制刷新
         setIsLoading(false)
+        hasInit.current = true;
+
+        // 渲染完通知 宿主
+        setTimeout(() => {
+            console.log('------------------------------------------------------渲染完成 ');
+            dashboard.setRendered().then( res => {
+                console.log('set rendered: ',res);
+            })
+        }, 1000);
     }
 
     function updateTheme(theme: string) {
@@ -214,9 +244,9 @@ function App() {
 
             console.log('========1get config', p)
             // 先获取保存的配置数据
-            if (dashboard.state !== DashboardState.Create) {
-                console.log('load config')
-                dashboard.getConfig().then((config) => {
+            if (dashboard?.state !== DashboardState.Create) {
+                // console.log('load config')
+                dashboard?.getConfig().then((config) => {
                     const customConfig: any = config.customConfig
                     const dataConditions: IDataCondition[] = config.dataConditions
                     // 主要处理 复制模版 custom config 中的数据不会被动态替换，导致复制模版获取的 table id 不对
@@ -225,16 +255,39 @@ function App() {
                         if (firstCondition.tableId) {
                             customConfig.datasourceConfig.tableId = firstCondition.tableId
                         }
+                        if (firstCondition.baseToken) {
+                            customConfig.datasourceConfig.baseToken = firstCondition.baseToken
+                        }
                     }
                     console.log('获取到 config start========：', config, textConfig, datasourceConfig, { ...datasourceConfig, ...customConfig.datasourceConfig });
                     updateDatasourceConfig({ ...datasourceConfig, ...customConfig.datasourceConfig })
                     updateTextConfig({ ...textConfig, ...customConfig.textConfig })
+                    setIsGetConfigReady(true);
                     datasourceConfigCache = { ...datasourceConfig, ...customConfig.datasourceConfig }
                     console.log('获取到 config end=====：', config, datasourceConfigCache);
-                    initConfigData(customConfig.datasourceConfig.tableId).then();
+                    initConfigData(customConfig.datasourceConfig.tableId, customConfig.datasourceConfig.baseToken).then();
                 })
             } else {
-                initConfigData(null).then();
+                 const getBaseToken = async () => {
+                    if (!isMultipleBase) {
+                        return;
+                    }
+                    const baseList = await workspace.getBaseList({
+                        query: "",
+                        page: {
+                        cursor: "",
+                        },
+                    });
+                    const initialBaseToken = baseList?.base_list?.[0]?.token || "";
+                    const realBitable = await workspace.getBitable(initialBaseToken)
+                    bitableRef.current = realBitable;
+                    updateDatasourceConfig({...datasourceConfig, baseToken: initialBaseToken })
+                    return initialBaseToken
+                };
+
+                const initialBaseToken = await getBaseToken();
+
+                initConfigData(null, initialBaseToken).then();
             }
         }
 
@@ -244,10 +297,23 @@ function App() {
         })
         debouncedGetConfig(1);
 
-        dashboard.onConfigChange(() => debouncedGetConfig(2));
+        dashboard?.onConfigChange(() => debouncedGetConfig(2));
         // 监控数据变化
-        dashboard.onDataChange(() => debouncedGetConfig(3));
-    }, []);
+        dashboard?.onDataChange(() => debouncedGetConfig(3));
+    }, [isMultipleBase, isGetConfigReady]);
+
+    useEffect(() => {
+       (async () => {
+            if (!hasInit.current) {
+                return;
+            }
+            const realBitable = isMultipleBase
+                ? await workspace.getBitable(datasourceConfig.baseToken!)
+                : bitableSdk;
+            bitableRef.current = realBitable;
+            await initConfigData(null, datasourceConfig.baseToken);
+        })()
+    }, [datasourceConfig.baseToken, isMultipleBase]);
 
     return isLoading ?
         (<div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
@@ -258,11 +324,13 @@ function App() {
         </div>) :
         (<div>
             <div className="flex h-full">
-                <NineSquaresGrid />
-                {dashboard.state === DashboardState.Create || dashboard.state === DashboardState.Config ? (
+                <NineSquaresGrid/>
+                {dashboard?.state === DashboardState.Create || dashboard?.state === DashboardState.Config ? (
                     <ConfigPanel
                         tables={datasource.tables}
                         dataRanges={datasource.dataRanges[datasource.tableId]}
+                        isMultipleBase={isMultipleBase}
+                        bitableRef={bitableRef}
                     />
                 ) : null}
             </div>

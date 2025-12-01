@@ -1,7 +1,6 @@
-import { base, dashboard, DashboardState, IGetRecordsParams, IRecord, ITable } from "@lark-base-open/js-sdk";
-import { IDatasourceConfigType } from "../store";
+import {base as baseSdk, IGetRecordsParams, IRecord, ITable, bitable as bitableSdk, dashboard as dashboardSdk, DashboardState} from "@lark-base-open/js-sdk";
+import {IDatasourceConfigType} from "../store";
 import { loadTableRecords } from "./data";
-import { debounce } from 'lodash-es'
 
 export interface IDatasourceConfigCacheType {
     tableId: string;
@@ -24,9 +23,14 @@ export interface IDatasourceConfigCacheType {
 
 export class TableDataGroupHelper {
     setProgress: (props: { total: number; current: number; }) => void;
+    bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
 
-    constructor(props: { setProgress: (props: { total: number, current: number }) => void }) {
-        this.setProgress = props.setProgress
+    constructor(props: { 
+        setProgress: (props: { total: number, current: number }) => void;
+        bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
+    }) {
+        this.setProgress = props.setProgress;
+        this.bitableRef = props.bitableRef;
     }
 
     supportedFiled(fieldType: number): Boolean {
@@ -38,7 +42,8 @@ export class TableDataGroupHelper {
         // 找个 有 type 3 单选  type 11 人员 字段的表，而且 type 3 的 字段大于等于 2，
         let result: { tableId: string, fields: any[] } | undefined = undefined;
         const findTableItem = tableList[index];
-        if (!findTableItem) return undefined;
+        if (!findTableItem) return  undefined;
+        const base = this.bitableRef.current?.base || baseSdk;
         const table = await base.getTable(findTableItem.tableId);
         const fields = (await table.getFieldMetaList()) as any[]
         // 找到 有两个以上 数字字段的表
@@ -72,6 +77,7 @@ export class TableDataGroupHelper {
         // }
         // await loadRecordsByPage('');
         // 配置状态下，只加载前400行数据
+        const dashboard = this.bitableRef.current?.dashboard || dashboardSdk;
         const isConfig = dashboard.state === DashboardState.Config || dashboard.state === DashboardState.Create
         const count = isConfig ? 400 : undefined
         let viewId = undefined;
@@ -84,7 +90,8 @@ export class TableDataGroupHelper {
             count,
             updadeProgress: (props) => {
                 this.setProgress(props)
-            }
+            },
+            bitableRef: this.bitableRef,
         })
         return allRecords;
     }
@@ -199,7 +206,8 @@ export class TableDataGroupHelper {
         return [...filteredRecord]
     }
 
-    async prepareData(tableId: string, datasource: any, datasourceConfigCache: any) {
+    async prepareData(tableId: string, datasource: any,  datasourceConfigCache: any) {
+        const base = this.bitableRef.current?.base || baseSdk;
         const table = await base.getTable(tableId);
         const fields = await table.getFieldMetaList()
         // console.log('prepare data fields',fields);

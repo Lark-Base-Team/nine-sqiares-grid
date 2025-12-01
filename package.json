@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "output": "dist",
+  
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -11,9 +12,9 @@
   },
   "dependencies": {
     "@douyinfe/semi-foundation": "^2.59.1",
+    "@lark-base-open/js-sdk": "https://lf3-static.bytednsdoc.com/obj/eden-cn/jjjpceh7nulojvhj/@lark-base-open-js-sdk-0.5.1-alpha.13.tgz",
     "@douyinfe/semi-icons": "^2.88.3",
     "@douyinfe/semi-ui": "^2.59.1",
-    "@lark-base-open/js-sdk": "^1.0.0",
     "@semi-bot/semi-theme-feishu-dashboard": "^1.0.4",
     "i18next": "^23.11.5",
     "lodash-es": "^4.17.21",

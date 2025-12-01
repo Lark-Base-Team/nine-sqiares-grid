@@ -5,6 +5,7 @@ export interface IDatasourceType {
     // 所有表对象
     tables: any[];
     //选中
+    baseToken?: string;
     tableId: string;
     theme: 'light' | 'dark' | 'primary';
     fields: { [key: string]: any[] };
@@ -24,13 +25,14 @@ export interface IDatasourceType {
 
 interface IDatasourceStore {
     datasource: IDatasourceType;
-    updateDatasource: (typeConfig: IDatasourceStore) => void;
+    updateDatasource: (typeConfig: IDatasourceType) => void;
 }
 
 export const useDatasourceStore = create<IDatasourceStore>((set) => ({
     datasource: {
         tables: [],
         tableId: '',
+        baseToken: undefined,
         fields: {},
         allRecords: {},
         theme: 'light',
@@ -52,6 +54,7 @@ export const useDatasourceStore = create<IDatasourceStore>((set) => ({
 
 
 export interface IDatasourceConfigType {
+    baseToken?: string;
     tableId: string;
     dataRange: string;
     personnelField: string;
@@ -72,29 +75,32 @@ export interface IDatasourceConfigType {
 
 interface IDatasourceConfigStore {
     datasourceConfig: IDatasourceConfigType;
-    updateDatasourceConfig: (typeConfig: IDatasourceConfigStore) => void;
+    updateDatasourceConfig: (typeConfig: IDatasourceConfigType) => void;
 }
 
-export const useDatasourceConfigStore = create<IDatasourceConfigStore>((set) => ({
-    datasourceConfig: {
-        tableId: '',
-        dataRange: '',
-        personnelField: '',
-        horizontalField: '',
-        horizontalCategories: {
-            left: [''],
-            middle: [''],
-            right: ['']
-        },
-
-        verticalField: '',
-        verticalCategories: {
-            up: [''],
-            middle: [''],
-            down: ['']
-        },
-        groupField: ''
+export const initialDatasourceConfig = {
+    tableId: '',
+    baseToken: undefined,
+    dataRange: '',
+    personnelField: '',
+    horizontalField: '',
+    horizontalCategories: {
+        left: [''],
+        middle: [''],
+        right: ['']
     },
+
+    verticalField: '',
+    verticalCategories: {
+        up: [''],
+        middle: [''],
+        down: ['']
+    },
+    groupField: ''
+};
+
+export const useDatasourceConfigStore = create<IDatasourceConfigStore>((set) => ({
+    datasourceConfig: initialDatasourceConfig,
     updateDatasourceConfig: (datasourceConfig) => set(() => ({ datasourceConfig })),
 }));
 
