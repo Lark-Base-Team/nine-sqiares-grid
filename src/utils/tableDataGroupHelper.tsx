@@ -1,5 +1,6 @@
-import {base as baseSdk, IGetRecordsParams, IRecord, ITable, bitable as bitableSdk} from "@lark-base-open/js-sdk";
+import {base as baseSdk, IGetRecordsParams, IRecord, ITable, bitable as bitableSdk, dashboard as dashboardSdk, DashboardState} from "@lark-base-open/js-sdk";
 import {IDatasourceConfigType} from "../store";
+import { loadTableRecords } from "./data";
 
 export interface IDatasourceConfigCacheType {
     tableId: string;
@@ -21,7 +22,16 @@ export interface IDatasourceConfigCacheType {
 }
 
 export class TableDataGroupHelper {
-    constructor(private bitableRef: React.MutableRefObject<typeof bitableSdk | null>) {}
+    setProgress: (props: { total: number; current: number; }) => void;
+    bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
+
+    constructor(props: { 
+        setProgress: (props: { total: number, current: number }) => void;
+        bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
+    }) {
+        this.setProgress = props.setProgress;
+        this.bitableRef = props.bitableRef;
+    }
 
     supportedFiled(fieldType: number): Boolean {
         // 1 文本，3 单选  11 人员  19 查找引用  20公式
@@ -50,33 +60,46 @@ export class TableDataGroupHelper {
     }
 
     async loadAllRecordsForTable(table: ITable, dataSourceConfig: IDatasourceConfigType): Promise<IRecord[]> {
-        let allRecords: IRecord[] = [];
+        console.log('======loadAllRecordsForTable', table, dataSourceConfig)
         // 分页加载，每次加载 5000 条 直到加载完数据
-        const loadRecordsByPage = async (lastRecordId: string) => {            
-            let params = { pageSize: 200 } as any
-            if (dataSourceConfig.dataRange && dataSourceConfig.dataRange !== 'All') {
-                params.viewId = dataSourceConfig.dataRange
-            }
-            if (lastRecordId.length > 0){
-                params.pageToken = lastRecordId
-            }
-            console.log('load data params', params, dataSourceConfig.dataRange)
-            const res = await table.getRecordListByPage(params) as any;
-            console.log(res);
-            
-            allRecords.push(...res.records.recordList)
-            if (res.hasMore) {
-                const last = allRecords[allRecords.length - 1];
-                await loadRecordsByPage(last.recordId)
-            }
+        // const loadRecordsByPage = async (lastRecordId: string) => {
+        //     let params: IGetRecordsParams = { pageSize: 5000 , pageToken: lastRecordId }
+        //     if (dataSourceConfig.dataRange && dataSourceConfig.dataRange !== 'All') {
+        //         params.viewId = dataSourceConfig.dataRange
+        //     }
+        //     console.log('load data params', params, dataSourceConfig.dataRange)
+        //     const { hasMore , records } = await table.getRecords(params);
+        //     allRecords.push(...records)
+        //     if (hasMore) {
+        //         const last = allRecords[allRecords.length - 1];
+        //         await loadRecordsByPage(last.recordId)
+        //     }
+        // }
+        // await loadRecordsByPage('');
+        // 配置状态下，只加载前400行数据
+        const dashboard = this.bitableRef.current?.dashboard || dashboardSdk;
+        const isConfig = dashboard.state === DashboardState.Config || dashboard.state === DashboardState.Create
+        const count = isConfig ? 400 : undefined
+        let viewId = undefined;
+        if (dataSourceConfig.dataRange && dataSourceConfig.dataRange !== 'All') {
+            viewId = dataSourceConfig.dataRange
         }
-        await loadRecordsByPage('');
+        const allRecords = await loadTableRecords({
+            tableId: table.id,
+            params: { viewId },
+            count,
+            updadeProgress: (props) => {
+                this.setProgress(props)
+            },
+            bitableRef: this.bitableRef,
+        })
         return allRecords;
     }
 
+
     groupRecordsByInfo(records: IRecord[],
-                       groupField: any | null,
-                       groupTexts: string[]
+        groupField: any | null,
+        groupTexts: string[]
 
     ): { category: string, persons: IRecord[] }[] {
         if (!groupField) {
@@ -98,7 +121,7 @@ export class TableDataGroupHelper {
     }
 
     groupTextsFor(records: IRecord[],
-                  groupField: any | null
+        groupField: any | null
     ): string[] {
         if (!groupField) {
             return [];
@@ -110,7 +133,7 @@ export class TableDataGroupHelper {
         let map: { [key: string]: string } = {};
         records.forEach(item => {
             let fieldInfo = ((item.fields[groupField.id]) instanceof Array) ? (item.fields[groupField.id] as any[])[0] : (item.fields[groupField.id]);
-            let text = fieldInfo ? fieldInfo['text']: '';
+            let text = fieldInfo ? fieldInfo['text'] : '';
             if (text?.length) {
                 map[text] = text;
             }
@@ -127,8 +150,8 @@ export class TableDataGroupHelper {
     }
 
     mapRecordByDisplayInfo(groupedRecords: { category: string, persons: IRecord[] }[],
-                           personnelField: any | null,
-                           totalRowCount: number
+        personnelField: any | null,
+        totalRowCount: number
     ): { list: { category: string, persons: string[] }[], total: number, percent: number } {
         // console.log('--------',groupedRecords, personnelField)
         let displayInfo: { category: string, persons: string[] }[] = [];
@@ -145,16 +168,16 @@ export class TableDataGroupHelper {
         const list = displayInfo.filter(item => item.persons.length > 0)
         const total = list.map(item => item.persons).flat().length
         // console.log('mapRecordByDisplayInfo:::::::::::',list, displayInfo, total, totalRowCount, (total*100)/totalRowCount)
-        return { total, percent: Math.floor((total*100*100)/totalRowCount)/100.0, list };
+        return { total, percent: Math.floor((total * 100 * 100) / totalRowCount) / 100.0, list };
     }
 
 
     filterRecordsByInfo(allRecords: IRecord[],
-                        verticalField: any | null,
-                        verticalType: 'up' | 'middle' | 'down',
-                        horizontalField: any | null,
-                        horizontalType: 'left' | 'middle' | 'right',
-                        datasourceConfigCache: any
+        verticalField: any | null,
+        verticalType: 'up' | 'middle' | 'down',
+        horizontalField: any | null,
+        horizontalType: 'left' | 'middle' | 'right',
+        datasourceConfigCache: any
     ): IRecord[] {
         let filteredRecord: IRecord[] = []
         if (verticalField) {
@@ -190,7 +213,7 @@ export class TableDataGroupHelper {
         const fields = await table.getFieldMetaList()
         // console.log('prepare data fields',fields);
         // 获取数据
-        const allRecords = await  this.loadAllRecordsForTable(table, datasourceConfigCache)
+        const allRecords = await this.loadAllRecordsForTable(table, datasourceConfigCache)
         // console.log('加载完当前 table 所以记录 ', allRecords,)
         datasource.totalRowCount = allRecords.length
         datasource.allRecords[table.id] = allRecords
@@ -240,3 +263,4 @@ export class TableDataGroupHelper {
         datasource.rightDownValue = this.mapRecordByDisplayInfo(rightDownGroupList, personField, allRecords.length)
     }
 }
+

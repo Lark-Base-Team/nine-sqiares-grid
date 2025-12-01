@@ -4,8 +4,9 @@ import { ConfigPanel } from "./components/configPanel";
 import { base as baseSdk, dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, IDataCondition, ITable, bridge, IBase, IDashboard, workspace} from "@lark-base-open/js-sdk";
 import { useDatasourceConfigStore, useDatasourceStore, useTextConfigStore } from './store';
 import { TableDataGroupHelper, IDatasourceConfigCacheType } from "./utils/tableDataGroupHelper";
-import Icon, {IconDeleteStroked, IconPlus} from '@douyinfe/semi-icons';
+import Icon, { IconDeleteStroked, IconPlus } from '@douyinfe/semi-icons';
 import IconLoading from './assets/icon_loading.svg?react';
+import { debounce } from 'lodash-es';
 
 function App() {
 
@@ -40,6 +41,7 @@ function App() {
     };
 
     const [isLoading, setIsLoading] = useState(true)
+    const [progress, setProgress] = useState({ total: 0, current: 0 });
     const [isMultipleBase, setIsMultipleBase] = useState<boolean | undefined>(undefined);
 
     const bitableRef = useRef<typeof bitableSdk | null>(bitableSdk);
@@ -64,7 +66,7 @@ function App() {
         });
     }, []);
 
-    const dataHelper = new TableDataGroupHelper(bitableRef)
+    const dataHelper = new TableDataGroupHelper({ setProgress, bitableRef })
 
     function configRenderData(tableId: string, fields: any[]): void {
         const userFields = fields.filter(field => field.type === 11)
@@ -76,7 +78,7 @@ function App() {
         datasourceConfig.horizontalField = horizontalField.id
         datasourceConfigCache.horizontalField = horizontalField.id
         if (horizontalField.property?.options) {
-            let options = (horizontalField.property.options as any[]).map(item => ({ ...item, disabled: false}))
+            let options = (horizontalField.property.options as any[]).map(item => ({ ...item, disabled: false }))
             if (options.length === 1) {
                 options[0].disabled = true
                 datasourceConfig.horizontalCategories.left = [options[0].id]
@@ -97,17 +99,17 @@ function App() {
                 options[Math.floor(options.length / 2)].disabled = true
                 datasourceConfig.horizontalCategories.middle = [options[Math.floor(options.length / 2)].id]
                 datasourceConfigCache.horizontalCategories.middle = [options[Math.floor(options.length / 2)].id]
-                options[options.length-1].disabled = true
-                datasourceConfig.horizontalCategories.right = [options[options.length -1].id]
-                datasourceConfigCache.horizontalCategories.right = [options[options.length -1].id]
+                options[options.length - 1].disabled = true
+                datasourceConfig.horizontalCategories.right = [options[options.length - 1].id]
+                datasourceConfigCache.horizontalCategories.right = [options[options.length - 1].id]
             }
         }
 
-        const verticalField:any = optionFields[1];
+        const verticalField: any = optionFields[1];
         datasourceConfig.verticalField = verticalField.id
         datasourceConfigCache.verticalField = verticalField.id
         if (verticalField.property?.options) {
-            let options = (verticalField.property.options as any[]).map(item => ({ ...item, disabled: false}))
+            let options = (verticalField.property.options as any[]).map(item => ({ ...item, disabled: false }))
             if (options.length === 1) {
                 options[0].disabled = true
                 datasourceConfig.verticalCategories.up = [options[0].id]
@@ -128,9 +130,9 @@ function App() {
                 options[Math.floor(options.length / 2)].disabled = true
                 datasourceConfig.verticalCategories.middle = [options[Math.floor(options.length / 2)].id]
                 datasourceConfigCache.verticalCategories.middle = [options[Math.floor(options.length / 2)].id]
-                options[options.length-1].disabled = true
-                datasourceConfig.verticalCategories.down = [options[options.length -1].id]
-                datasourceConfigCache.verticalCategories.down = [options[options.length -1].id]
+                options[options.length - 1].disabled = true
+                datasourceConfig.verticalCategories.down = [options[options.length - 1].id]
+                datasourceConfigCache.verticalCategories.down = [options[options.length - 1].id]
             }
         }
     }
@@ -142,29 +144,29 @@ function App() {
         }
         const base = bitableRef.current.base;
         const dashboard = bitableRef.current.dashboard;
-        const theme = await bitableRef.current.bridge.getTheme()
-        if (theme === 'LIGHT') {
+        const theme = await dashboard.getTheme()
+        if (theme.theme === 'LIGHT') {
             datasource.theme = 'light'
         } else {
             datasource.theme = 'dark'
         }
-        // console.log(theme, '++++++++++++++++++')
-        updateTheme(theme.toLocaleLowerCase())
+        console.log(theme, '++++++++++++++++++')
+        updateTheme(theme.theme.toLocaleLowerCase())
         const tableIdList = await base.getTableList();
         // console.log('获取表 id 列表: ',tableIdList)
         const tableList = await Promise.all(getTableList(tableIdList));
-        console.log('====获取所有表: ',tableList);
+        console.log('获取所有表: ', tableList);
         datasource.tables = [...tableList];
         let tableId = id ? id : tableList[0].tableId;
         if (!id) {
-           const availableInfo = await dataHelper.findAvailableTableForRender(tableList, 0);
-           console.log(availableInfo, 'availableInfo---------')
-           if (availableInfo && availableInfo.tableId) {
-               // config render data
-               tableId = availableInfo.tableId;
-               datasource.fields[availableInfo.tableId] = availableInfo.fields
-               configRenderData(availableInfo.tableId, availableInfo.fields)
-           }
+            const availableInfo = await dataHelper.findAvailableTableForRender(tableList, 0);
+            console.log(availableInfo, 'availableInfo---------')
+            if (availableInfo && availableInfo.tableId) {
+                // config render data
+                tableId = availableInfo.tableId;
+                datasource.fields[availableInfo.tableId] = availableInfo.fields
+                configRenderData(availableInfo.tableId, availableInfo.fields)
+            }
         }
         console.log(datasourceConfig, datasourceConfigCache, '-----------prepare render data')
         datasource.tableId = tableId;
@@ -174,26 +176,26 @@ function App() {
         // 如果没有字段数据则拉取
         if (!datasource.fields[tableId] || datasource.fields[tableId].length === 0) {
             const table = await base.getTable(tableId);
-            console.log('获取当前选中的表',table)
+            console.log('获取当前选中的表', table)
             const fields = await table.getFieldMetaList()
             datasource.fields[tableId] = [...fields];
         }
 
-        console.log('获取选中表的所有字段信息: ',datasource.fields);
-        const tableDataRange: any[] =  await dashboard.getTableDataRange(tableId)
+        console.log('获取选中表的所有字段信息: ', datasource.fields);
+        const tableDataRange: any[] = await dashboard.getTableDataRange(tableId)
         datasource.dataRanges[tableId] = tableDataRange.map(item => ({
             type: item.type,
             viewId: item.viewId,
-            viewName:item.viewName
+            viewName: item.viewName
         }))
         datasourceConfig.dataRange = 'All';
-        console.log('获取表数据范围: ',datasource.dataRanges);
+        console.log('获取表数据范围: ', datasource.dataRanges);
         // 如果不是创建面板，则根据 自定义配置组装数据
         if (dashboard.state !== DashboardState.Create ||
-            (datasourceConfig.tableId && datasourceConfig.personnelField  && datasourceConfig.horizontalField  && datasourceConfig.verticalField)
+            (datasourceConfig.tableId && datasourceConfig.personnelField && datasourceConfig.horizontalField && datasourceConfig.verticalField)
         ) {
             await dataHelper.prepareData(tableId, datasource, datasourceConfigCache)
-            updateDatasource({...(datasource as any)})
+            updateDatasource({ ...(datasource as any) })
         }
         updateDatasourceConfig({ ...datasourceConfig, baseToken })
         console.log('------------------------------------------------------数据已经准备好: ',datasource, new Date().toISOString())
@@ -215,21 +217,30 @@ function App() {
     }
 
     useEffect(() => {
-        if (isMultipleBase === undefined) {
-            return;
-        }
-        const dashboard = bitableRef.current?.dashboard;
-        bitableRef.current?.bridge.onThemeChange((event) => {
-            console.log('theme change', event.data.theme);
-            if (event.data.theme === 'LIGHT') {
+        // bitable.bridge.onThemeChange((event) => {
+        //     console.log('theme change', event.data.theme);
+        //     if (event.data.theme === 'LIGHT') {
+        //         datasource.theme = 'light'
+        //     } else {
+        //         datasource.theme = 'dark'
+        //     }
+        //     updateTheme(event.data.theme.toLocaleLowerCase())
+        //     updateDatasource({ ...(datasource as any) })
+        // });
+        dashboard.onThemeChange(theme => {
+            console.log('theme change', theme.data.theme);
+            if (theme.data.theme === 'LIGHT') {
                 datasource.theme = 'light'
             } else {
                 datasource.theme = 'dark'
             }
-            updateTheme(event.data.theme.toLocaleLowerCase())
+            updateTheme(theme.data.theme.toLocaleLowerCase())
             updateDatasource({ ...(datasource as any) })
         });
-        async function getConfig() {
+
+        async function getConfig(p: any) {
+
+            console.log('========1get config', p)
             // 先获取保存的配置数据
             if (dashboard?.state !== DashboardState.Create) {
                 // console.log('load config')
@@ -247,12 +258,12 @@ function App() {
                             customConfig.datasourceConfig.baseToken = firstCondition.baseToken
                         }
                     }
-                    // console.log('获取到 config start========：', config, textConfig, datasourceConfig, {...datasourceConfig, ...customConfig.datasourceConfig});
-                    updateDatasourceConfig({...datasourceConfig, ...customConfig.datasourceConfig})
-                    updateTextConfig({...textConfig, ...customConfig.textConfig})
-                    datasourceConfigCache = {...datasourceConfig, ...customConfig.datasourceConfig}
-                    // console.log('获取到 config end=====：', config, datasourceConfigCache);
-                    initConfigData(customConfig.datasourceConfig.tableId, customConfig.datasourceConfig.baseToken).then();
+                    console.log('获取到 config start========：', config, textConfig, datasourceConfig, { ...datasourceConfig, ...customConfig.datasourceConfig });
+                    updateDatasourceConfig({ ...datasourceConfig, ...customConfig.datasourceConfig })
+                    updateTextConfig({ ...textConfig, ...customConfig.textConfig })
+                    datasourceConfigCache = { ...datasourceConfig, ...customConfig.datasourceConfig }
+                    console.log('获取到 config end=====：', config, datasourceConfigCache);
+                    initConfigData(customConfig.datasourceConfig.tableId).then();
                 })
             } else {
                  const getBaseToken = async () => {
@@ -277,10 +288,20 @@ function App() {
                 initConfigData(null, initialBaseToken).then();
             }
         }
-        getConfig().then();
-        dashboard?.onConfigChange(getConfig);
+        // getConfig().then();
+        // dashboard?.onConfigChange(getConfig);
+        // // 监控数据变化
+        // dashboard?.onDataChange(getConfig);
+
+        const debouncedGetConfig = debounce(getConfig, 500, {
+            leading: false,
+            trailing: true,
+        })
+        debouncedGetConfig(1);
+
+        dashboard?.onConfigChange(() => debouncedGetConfig(2));
         // 监控数据变化
-        dashboard?.onDataChange(getConfig);
+        dashboard?.onDataChange(() => debouncedGetConfig(3));
     }, [isMultipleBase]);
 
     useEffect(() => {
@@ -300,7 +321,7 @@ function App() {
         (<div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
             <div style={{ width: 'max-content', height: 'max-content', display: 'flex', flexDirection: 'column', alignItems: 'center', rowGap: '10px', justifyItems: 'center' }}>
                 <Icon svg={<IconLoading />} />
-                <div style={{textAlign: 'center', fontSize: '16px', color: datasource.theme === 'light' ?  "#1F2329" :  "#FFFFFF" }}>加载中...</div>
+                <div style={{ textAlign: 'center', fontSize: '16px', color: datasource.theme === 'light' ? "#1F2329" : "#FFFFFF" }}>加载中...（{progress.current}/{progress.total}）</div>
             </div>
         </div>) :
         (<div>

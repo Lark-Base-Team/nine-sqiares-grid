@@ -2,7 +2,7 @@
   "tab_name1": "タイプとデータ",
   "tab_name2": "カスタムスタイル",
   "data_source": "データソース",
-  "data_range": "データ範囲",
+  "data_range": "データ範囲（プレビュー段階では最大400件のレコードのみ表示されます）",
   "view_all": "すべて見る",
   "title": "タイトル",
   "sec_title": "副題",
