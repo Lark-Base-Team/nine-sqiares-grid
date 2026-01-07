@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "output": "dist",
-  
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -35,5 +34,6 @@
     "vite": "^5.2.0",
     "vite-plugin-svgr": "^4.2.0",
     "zustand": "^4.5.2"
-  }
+  },
+  "packageManager": "pnpm@6.23.6+sha512.1fa3c8ccee16db383626a9acd77b92e54ddf53cc8175693cad772924b8ecfe29fe9eeb60540f061a56ac100236780893a5cf456095240a495b2786bf337e8dd3"
 }

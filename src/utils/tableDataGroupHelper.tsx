@@ -22,11 +22,11 @@ export interface IDatasourceConfigCacheType {
 }
 
 export class TableDataGroupHelper {
-    setProgress: (props: { total: number; current: number; }) => void;
+    setProgress: (props: { total: number; current: number; notSupport?: boolean }) => void;
     bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
 
     constructor(props: { 
-        setProgress: (props: { total: number, current: number }) => void;
+        setProgress: (props: { total: number, current: number; notSupport?: boolean }) => void;
         bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
     }) {
         this.setProgress = props.setProgress;

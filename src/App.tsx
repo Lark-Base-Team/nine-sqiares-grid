@@ -7,6 +7,7 @@ import { TableDataGroupHelper, IDatasourceConfigCacheType } from "./utils/tableD
 import Icon, { IconDeleteStroked, IconPlus } from '@douyinfe/semi-icons';
 import IconLoading from './assets/icon_loading.svg?react';
 import { debounce } from 'lodash-es';
+import { t } from 'i18next';
 
 function App() {
 
@@ -39,7 +40,7 @@ function App() {
     };
 
     const [isLoading, setIsLoading] = useState(true)
-    const [progress, setProgress] = useState({ total: 0, current: 0 });
+    const [progress, setProgress] = useState<{ total: number; current: number; notSupport?: boolean }>({ total: 0, current: 0 });
     const [isMultipleBase, setIsMultipleBase] = useState<boolean | undefined>(undefined);
     const [isGetConfigReady, setIsGetConfigReady] = useState<boolean>(false);
 
@@ -321,20 +322,37 @@ function App() {
                 <Icon svg={<IconLoading />} />
                 <div style={{ textAlign: 'center', fontSize: '16px', color: datasource.theme === 'light' ? "#1F2329" : "#FFFFFF" }}>加载中...（{progress.current}/{progress.total}）</div>
             </div>
-        </div>) :
-        (<div>
-            <div className="flex h-full">
-                <NineSquaresGrid/>
-                {dashboard?.state === DashboardState.Create || dashboard?.state === DashboardState.Config ? (
-                    <ConfigPanel
-                        tables={datasource.tables}
-                        dataRanges={datasource.dataRanges[datasource.tableId]}
-                        isMultipleBase={isMultipleBase}
-                        bitableRef={bitableRef}
-                    />
-                ) : null}
-            </div>
         </div>)
+        : progress.notSupport 
+            ? (
+                <div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
+                    <div style={{ width: '100%', height: 'max-content', display: 'flex', flexDirection: 'column', alignItems: 'center', rowGap: '10px', justifyItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ 
+                            textAlign: 'center', 
+                            fontSize: '16px', 
+                            color: datasource.theme === 'light' ? "#1F2329" : "#FFFFFF",
+                            whiteSpace: 'normal',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word',
+                        }}>
+                            {t('暂不支持展示')}
+                        </div>
+                    </div>
+                </div>
+            ) 
+            : (<div>
+                <div className="flex h-full">
+                    <NineSquaresGrid/>
+                    {dashboard?.state === DashboardState.Create || dashboard?.state === DashboardState.Config ? (
+                        <ConfigPanel
+                            tables={datasource.tables}
+                            dataRanges={datasource.dataRanges[datasource.tableId]}
+                            isMultipleBase={isMultipleBase}
+                            bitableRef={bitableRef}
+                        />
+                    ) : null}
+                </div>
+            </div>)
 }
 
 export default App

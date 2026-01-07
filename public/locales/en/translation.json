@@ -84,5 +84,6 @@
   "请选择多维表格": "Select base",
   "暂无匹配结果": "No matching results found",
   "跳转到多维表格": "Redirect to Base",
-  "无权限查看组件": "No permission to view blocks"
+  "无权限查看组件": "No permission to view blocks",
+  "暂不支持展示": "Unable to display content as the current table exceeds 2000."
 }
