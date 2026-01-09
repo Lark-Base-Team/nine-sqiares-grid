@@ -138,6 +138,8 @@ function App() {
     }
 
     async function initConfigData(id: string | null, baseToken?: string) {
+        /* 渲染状态有 id，配置状态无 id */
+        const isConfig = !id;
         //LIGHT = "LIGHT", DARK = "DARK"
         if (!bitableRef.current) {
             return;
@@ -155,13 +157,14 @@ function App() {
          if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
             return;
         }
-        const tableIdList = await base.getTableList();
-        // console.log('获取表 id 列表: ',tableIdList)
-        const tableList = await Promise.all(getTableList(tableIdList));
-        console.log('获取所有表: ', tableList);
-        datasource.tables = [...tableList];
-        let tableId = id ? id : tableList[0].tableId;
-        if (!id) {
+        let tableId = id ? id : '';
+        if (isConfig) {
+            const tableIdList = await base.getTableList();
+            // console.log('获取表 id 列表: ',tableIdList)
+            const tableList = await Promise.all(getTableList(tableIdList));
+            console.log('获取所有表: ', tableList);
+            datasource.tables = [...tableList];
+            tableId = tableList[0].tableId;
             const availableInfo = await dataHelper.findAvailableTableForRender(tableList, 0);
             console.log(availableInfo, 'availableInfo---------')
             if (availableInfo && availableInfo.tableId) {
