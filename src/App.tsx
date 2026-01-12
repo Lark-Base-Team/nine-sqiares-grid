@@ -139,13 +139,13 @@ function App() {
 
     async function initConfigData(id: string | null, baseToken?: string) {
         /* 渲染状态有 id，配置状态无 id */
-        const isConfig = !id;
         //LIGHT = "LIGHT", DARK = "DARK"
         if (!bitableRef.current) {
             return;
         }
         const base = bitableRef.current.base;
         const dashboard = bitableRef.current.dashboard;
+        const isConfigOrCreate = dashboard?.state === DashboardState.Create || dashboard?.state === DashboardState.Config;
         const theme = await dashboard.getTheme()
         if (theme.theme === 'LIGHT') {
             datasource.theme = 'light'
@@ -154,11 +154,8 @@ function App() {
         }
         console.log(theme, '++++++++++++++++++')
         updateTheme(theme.theme.toLocaleLowerCase())
-         if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
-            return;
-        }
         let tableId = id ? id : '';
-        if (isConfig) {
+        if (isConfigOrCreate) {
             const tableIdList = await base.getTableList();
             // console.log('获取表 id 列表: ',tableIdList)
             const tableList = await Promise.all(getTableList(tableIdList));
@@ -266,11 +263,10 @@ function App() {
                     console.log('获取到 config start========：', config, textConfig, datasourceConfig, { ...datasourceConfig, ...customConfig.datasourceConfig });
                     updateDatasourceConfig({ ...datasourceConfig, ...customConfig.datasourceConfig })
                     updateTextConfig({ ...textConfig, ...customConfig.textConfig })
-                    setIsGetConfigReady(true);
                     datasourceConfigCache = { ...datasourceConfig, ...customConfig.datasourceConfig }
                     console.log('获取到 config end=====：', config, datasourceConfigCache);
-                    initConfigData(customConfig.datasourceConfig.tableId, customConfig.datasourceConfig.baseToken).then();
-                })
+                    setIsGetConfigReady(true);
+                });
             } else {
                  const getBaseToken = async () => {
                     if (!isMultipleBase) {
@@ -304,7 +300,7 @@ function App() {
         dashboard?.onConfigChange(() => debouncedGetConfig(2));
         // 监控数据变化
         dashboard?.onDataChange(() => debouncedGetConfig(3));
-    }, [isMultipleBase, isGetConfigReady]);
+    }, [isMultipleBase]);
 
     useEffect(() => {
        (async () => {
@@ -318,6 +314,13 @@ function App() {
             await initConfigData(null, datasourceConfig.baseToken);
         })()
     }, [datasourceConfig.baseToken, isMultipleBase]);
+
+    useEffect(() => {
+        if (!isGetConfigReady) {
+            return;
+        }
+        initConfigData(datasourceConfig?.tableId, datasourceConfig?.baseToken).then();
+    }, [isGetConfigReady])
 
     return isLoading ?
         (<div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
