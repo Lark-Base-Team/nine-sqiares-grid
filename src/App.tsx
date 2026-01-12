@@ -8,6 +8,7 @@ import Icon, { IconDeleteStroked, IconPlus } from '@douyinfe/semi-icons';
 import IconLoading from './assets/icon_loading.svg?react';
 import { debounce } from 'lodash-es';
 import { t } from 'i18next';
+import { Empty } from './components/Empty';
 
 function App() {
 
@@ -333,6 +334,7 @@ function App() {
             ? (
                 <div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
                     <div style={{ width: '100%', height: 'max-content', display: 'flex', flexDirection: 'column', alignItems: 'center', rowGap: '10px', justifyItems: 'center', flexWrap: 'wrap' }}>
+                        <Empty />
                         <div style={{ 
                             textAlign: 'center', 
                             fontSize: '16px', 
