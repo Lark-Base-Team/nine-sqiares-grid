@@ -139,14 +139,14 @@ function App() {
     }
 
     async function initConfigData(id: string | null, baseToken?: string) {
-        /* 渲染状态有 id，配置状态无 id */
         //LIGHT = "LIGHT", DARK = "DARK"
         if (!bitableRef.current) {
             return;
         }
         const base = bitableRef.current.base;
         const dashboard = bitableRef.current.dashboard;
-        const isConfigOrCreate = dashboard?.state === DashboardState.Create || dashboard?.state === DashboardState.Config;
+        const isCreate = dashboard?.state === DashboardState.Create;
+        const isConfig = dashboard?.state === DashboardState.Config;
         const theme = await dashboard.getTheme()
         if (theme.theme === 'LIGHT') {
             datasource.theme = 'light'
@@ -155,22 +155,26 @@ function App() {
         }
         console.log(theme, '++++++++++++++++++')
         updateTheme(theme.theme.toLocaleLowerCase())
-        let tableId = id ? id : '';
-        if (isConfigOrCreate) {
+         if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
+            return;
+        }
+        let tableId = id ?? '';
+        let tableList: any[] = [];
+        if (isCreate || isConfig) {
             const tableIdList = await base.getTableList();
             // console.log('获取表 id 列表: ',tableIdList)
-            const tableList = await Promise.all(getTableList(tableIdList));
+            tableList = await Promise.all(getTableList(tableIdList));
             console.log('获取所有表: ', tableList);
             datasource.tables = [...tableList];
-            tableId = tableList[0].tableId;
-            const availableInfo = await dataHelper.findAvailableTableForRender(tableList, 0);
-            console.log(availableInfo, 'availableInfo---------')
-            if (availableInfo && availableInfo.tableId) {
-                // config render data
-                tableId = availableInfo.tableId;
-                datasource.fields[availableInfo.tableId] = availableInfo.fields
-                configRenderData(availableInfo.tableId, availableInfo.fields)
-            }
+        }
+        const isTableValid = id && tableList.find(t => t.tableId === id);
+        const availableInfo = !isTableValid ? await dataHelper.findAvailableTableForRender(tableList, 0) : undefined;
+        console.log(availableInfo, 'availableInfo---------')
+        if (availableInfo && availableInfo.tableId) {
+            // config render data
+            tableId = availableInfo.tableId;
+            datasource.fields[availableInfo.tableId] = availableInfo.fields
+            configRenderData(availableInfo.tableId, availableInfo.fields)
         }
         console.log(datasourceConfig, datasourceConfigCache, '-----------prepare render data')
         datasource.tableId = tableId;
@@ -193,6 +197,7 @@ function App() {
             viewName: item.viewName
         }))
         datasourceConfig.dataRange = 'All';
+        datasourceConfigCache.dataRange = 'All';
         console.log('获取表数据范围: ', datasource.dataRanges);
         // 如果不是创建面板，则根据 自定义配置组装数据
         if (dashboard.state !== DashboardState.Create ||
@@ -201,7 +206,7 @@ function App() {
             await dataHelper.prepareData(tableId, datasource, datasourceConfigCache)
             updateDatasource({ ...(datasource as any) })
         }
-        updateDatasourceConfig({ ...datasourceConfig, baseToken })
+        updateDatasourceConfig({ ...datasourceConfigCache, baseToken })
         console.log('------------------------------------------------------数据已经准备好: ',datasource, new Date().toISOString())
         // 强制刷新
         setIsLoading(false)
@@ -264,10 +269,11 @@ function App() {
                     console.log('获取到 config start========：', config, textConfig, datasourceConfig, { ...datasourceConfig, ...customConfig.datasourceConfig });
                     updateDatasourceConfig({ ...datasourceConfig, ...customConfig.datasourceConfig })
                     updateTextConfig({ ...textConfig, ...customConfig.textConfig })
+                    setIsGetConfigReady(true);
                     datasourceConfigCache = { ...datasourceConfig, ...customConfig.datasourceConfig }
                     console.log('获取到 config end=====：', config, datasourceConfigCache);
-                    setIsGetConfigReady(true);
-                });
+                    initConfigData(customConfig.datasourceConfig.tableId, customConfig.datasourceConfig.baseToken).then();
+                })
             } else {
                  const getBaseToken = async () => {
                     if (!isMultipleBase) {
@@ -301,7 +307,7 @@ function App() {
         dashboard?.onConfigChange(() => debouncedGetConfig(2));
         // 监控数据变化
         dashboard?.onDataChange(() => debouncedGetConfig(3));
-    }, [isMultipleBase]);
+    }, [isMultipleBase, isGetConfigReady]);
 
     useEffect(() => {
        (async () => {
@@ -315,13 +321,6 @@ function App() {
             await initConfigData(null, datasourceConfig.baseToken);
         })()
     }, [datasourceConfig.baseToken, isMultipleBase]);
-
-    useEffect(() => {
-        if (!isGetConfigReady) {
-            return;
-        }
-        initConfigData(datasourceConfig?.tableId, datasourceConfig?.baseToken).then();
-    }, [isGetConfigReady])
 
     return isLoading ?
         (<div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
