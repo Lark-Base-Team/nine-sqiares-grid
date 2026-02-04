@@ -66,7 +66,7 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
 
     const [tableId, setTableId] = useState<string>(datasourceConfig.tableId)
     const [dataRangeId, setDataRangeId] = useState<string>(datasourceConfig.dataRange)
-    const [dataRangeList, setDataRangeList] = useState(dataRanges);
+    const [dataRangeList, setDataRangeList] = useState(dataRanges || []);
 
     // 保存选择表的字段数据
     const [fields, setFields] = useState<{ [key: string]: any }[]>([])
@@ -786,7 +786,7 @@ export const ConfigPanel: FC<IConfigPanelPropsType> = (props) => {
                                                 onChange={(selectedValue) => tableDataRangeChange(selectedValue as string)}
                                                 disabled={tableLoading}
                                                 renderSelectedItem={tableLoading ? () => <Spin /> :renderTableSelectedItem}
-                                                optionList={dataRangeList.map((range) => {
+                                                optionList={(dataRangeList || []).map((range) => {
                                                     const {type, viewName, viewId} = range as any;
                                                     if (type === SourceType.ALL) {
                                                         return {

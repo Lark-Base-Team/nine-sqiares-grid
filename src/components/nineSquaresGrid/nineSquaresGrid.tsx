@@ -205,7 +205,7 @@ export function NineSquaresGrid({ }: NineSquaresGridProps) {
     }
 
     const horizontalAxisTitle = () => {
-        const fields: { name: string, id: string }[] = datasource.fields[datasource.tableId]
+        const fields: { name: string, id: string }[] = datasource.fields[datasource.tableId] || []
         return fields.find(item => item.id === datasourceConfig.horizontalField)?.name ?? ""
     }
 
@@ -232,7 +232,7 @@ export function NineSquaresGrid({ }: NineSquaresGridProps) {
     }
 
     const verticalAxisTitle = () => {
-        const fields: { name: string, id: string }[] = datasource.fields[datasource.tableId]
+        const fields: { name: string, id: string }[] = datasource.fields[datasource.tableId] || []
         return fields.find(item => item.id === datasourceConfig.verticalField)?.name ?? ""
     }
 

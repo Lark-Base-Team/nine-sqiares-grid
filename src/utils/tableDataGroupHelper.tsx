@@ -40,13 +40,13 @@ export class TableDataGroupHelper {
 
     async findAvailableTableForRender(tableList: any[], index: number): Promise<{ tableId: string, fields: any[] } | undefined> {
         // 找个 有 type 3 单选  type 11 人员 字段的表，而且 type 3 的 字段大于等于 2，
-        let result: { tableId: string, fields: any[] } | undefined = undefined;
+        let result: { tableId: string, fields: any[] } | undefined = { tableId: '', fields: [] };
         const findTableItem = tableList[index];
         if (!findTableItem) return  undefined;
         const base = this.bitableRef.current?.base || baseSdk;
         const table = await base.getTable(findTableItem.tableId);
         const fields = (await table.getFieldMetaList()) as any[]
-        // 找到 有两个以上 数字字段的表
+        // 找到 有一个成员字段和两个数字字段 的表
         const userFields = fields.filter(field => field.type === 11)
         const optionFields = fields.filter(field => field.type === 3)
         if (userFields.length > 0 && optionFields.length >= 2) {
@@ -56,7 +56,8 @@ export class TableDataGroupHelper {
         if (index < tableList.length - 1) {
             return await this.findAvailableTableForRender(tableList, index + 1);
         }
-        return undefined;
+        return result;
+
     }
 
     async loadAllRecordsForTable(table: ITable, dataSourceConfig: IDatasourceConfigType): Promise<IRecord[]> {

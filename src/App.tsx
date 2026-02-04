@@ -181,21 +181,27 @@ function App() {
         datasourceConfig.tableId = tableId
         datasourceConfigCache.tableId = tableId
 
-        // 如果没有字段数据则拉取
         if (!datasource.fields[tableId] || datasource.fields[tableId].length === 0) {
-            const table = await base.getTable(tableId);
-            console.log('获取当前选中的表', table)
-            const fields = await table.getFieldMetaList()
-            datasource.fields[tableId] = [...fields];
+            if (tableId) {
+                const table = await base.getTable(tableId);
+                console.log('获取当前选中的表', table)
+                const fields = await table.getFieldMetaList()
+                datasource.fields[tableId] = [...fields];
+            } else {
+                datasource.fields[tableId] = [];
+            }
         }
 
         console.log('获取选中表的所有字段信息: ', datasource.fields);
-        const tableDataRange: any[] = await dashboard.getTableDataRange(tableId)
-        datasource.dataRanges[tableId] = tableDataRange.map(item => ({
-            type: item.type,
-            viewId: item.viewId,
-            viewName: item.viewName
-        }))
+        if (tableId) {
+            const tableDataRange: any[] = await dashboard.getTableDataRange(tableId)
+            datasource.dataRanges[tableId] = tableDataRange.map(item => ({
+                type: item.type,
+                viewId: item.viewId,
+                viewName: item.viewName
+            }))
+        }
+
         datasourceConfig.dataRange = 'All';
         datasourceConfigCache.dataRange = 'All';
         console.log('获取表数据范围: ', datasource.dataRanges);
@@ -203,8 +209,10 @@ function App() {
         if (dashboard.state !== DashboardState.Create ||
             (datasourceConfig.tableId && datasourceConfig.personnelField && datasourceConfig.horizontalField && datasourceConfig.verticalField)
         ) {
-            await dataHelper.prepareData(tableId, datasource, datasourceConfigCache)
-            updateDatasource({ ...(datasource as any) })
+            if (tableId) {
+                await dataHelper.prepareData(tableId, datasource, datasourceConfigCache)
+                updateDatasource({ ...(datasource as any) })
+            }
         }
         updateDatasourceConfig({ ...datasourceConfigCache, baseToken })
         console.log('------------------------------------------------------数据已经准备好: ',datasource, new Date().toISOString())
