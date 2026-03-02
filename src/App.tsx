@@ -1,14 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { NineSquaresGrid } from "./components/nineSquaresGrid";
-import { ConfigPanel } from "./components/configPanel";
-import { dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, IDataCondition, bridge, workspace} from "@lark-base-open/js-sdk";
+import { dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, bridge, workspace} from "@lark-base-open/js-sdk";
 import { IDatasourceConfigType, useDatasourceConfigStore, useDatasourceStore, useTextConfigStore } from './store';
 import { TableDataGroupHelper } from "./utils/tableDataGroupHelper";
-import Icon from '@douyinfe/semi-icons';
-import IconLoading from './assets/icon_loading.svg?react';
-import { debounce } from 'lodash-es';
-import { t } from 'i18next';
-import { Empty } from './components/Empty';
+import { useDashboardBindings } from './hooks/useDashboardBindings';
+import { LoadingView, MainView, NotSupportedView } from './components/appViews';
 
 function App() {
 
@@ -220,89 +215,20 @@ function App() {
         document.body.setAttribute('theme-mode', theme);
     }
 
-    useEffect(() => {
-        // bitable.bridge.onThemeChange((event) => {
-        //     console.log('theme change', event.data.theme);
-        //     if (event.data.theme === 'LIGHT') {
-        //         datasource.theme = 'light'
-        //     } else {
-        //         datasource.theme = 'dark'
-        //     }
-        //     updateTheme(event.data.theme.toLocaleLowerCase())
-        //     updateDatasource({ ...(datasource as any) })
-        // });
-        dashboard.onThemeChange(theme => {
-            console.log('theme change', theme.data.theme);
-            if (theme.data.theme === 'LIGHT') {
-                datasource.theme = 'light'
-            } else {
-                datasource.theme = 'dark'
-            }
-            updateTheme(theme.data.theme.toLocaleLowerCase())
-            updateDatasource({ ...(datasource as any) })
-        });
-
-        async function getConfig(p: any) {
-
-            console.log('========1get config', p)
-            // 先获取保存的配置数据
-            if (dashboard?.state !== DashboardState.Create) {
-                // console.log('load config')
-                dashboard?.getConfig().then((config) => {
-                    const customConfig: any = config.customConfig
-                    const dataConditions: IDataCondition[] = config.dataConditions
-                    //  复制模版时， customConfig 中的数据不会被动态替换，这会导致复制模版获取的 table id 不对。这里手动做下同步
-                    if (dataConditions.length > 0) {
-                        const firstCondition = dataConditions[0];
-                        if (firstCondition.tableId) {
-                            customConfig.datasourceConfig.tableId = firstCondition.tableId
-                        }
-                        if (firstCondition.baseToken) {
-                            customConfig.datasourceConfig.baseToken = firstCondition.baseToken
-                        }
-                    }
-                    const mergedDatasourceConfig = { ...datasourceConfig, ...customConfig.datasourceConfig } as IDatasourceConfigType;
-                    console.log('获取到 config start========：', config, textConfig, datasourceConfig, mergedDatasourceConfig);
-                    updateDatasourceConfig(mergedDatasourceConfig)
-                    updateTextConfig({ ...textConfig, ...customConfig.textConfig })
-                    setIsGetConfigReady(true);
-                    console.log('获取到 config end=====：', config, mergedDatasourceConfig);
-                    initConfigData(mergedDatasourceConfig.tableId, mergedDatasourceConfig.baseToken, mergedDatasourceConfig).then();
-                })
-            } else {
-                 const getBaseToken = async () => {
-                    if (!isMultipleBase) {
-                        return;
-                    }
-                    const baseList = await workspace.getBaseList({
-                        query: "",
-                        page: {
-                        cursor: "",
-                        },
-                    });
-                    const initialBaseToken = baseList?.base_list?.[0]?.token || "";
-                    const realBitable = await workspace.getBitable(initialBaseToken)
-                    bitableRef.current = realBitable;
-                    updateDatasourceConfig({...datasourceConfig, baseToken: initialBaseToken })
-                    return initialBaseToken
-                };
-
-                const initialBaseToken = await getBaseToken();
-
-                initConfigData(null, initialBaseToken, { ...datasourceConfig, baseToken: initialBaseToken } as IDatasourceConfigType).then();
-            }
-        }
-
-        const debouncedGetConfig = debounce(getConfig, 500, {
-            leading: false,
-            trailing: true,
-        })
-        debouncedGetConfig(1);
-
-        dashboard?.onConfigChange(() => debouncedGetConfig(2));
-        // 监控数据变化
-        dashboard?.onDataChange(() => debouncedGetConfig(3));
-    }, [isMultipleBase, isGetConfigReady]);
+    useDashboardBindings({
+        dashboard,
+        bitableRef,
+        isMultipleBase,
+        datasource,
+        datasourceConfig,
+        textConfig,
+        updateDatasource,
+        updateDatasourceConfig,
+        updateTextConfig,
+        setIsGetConfigReady,
+        initConfigData,
+        onThemeUpdate: updateTheme,
+    });
 
     useEffect(() => {
        (async () => {
@@ -317,44 +243,13 @@ function App() {
         })()
     }, [datasourceConfig.baseToken, isMultipleBase]);
 
-    return isLoading ?
-        (<div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
-            <div style={{ width: 'max-content', height: 'max-content', display: 'flex', flexDirection: 'column', alignItems: 'center', rowGap: '10px', justifyItems: 'center' }}>
-                <Icon svg={<IconLoading />} />
-                <div style={{ textAlign: 'center', fontSize: '16px', color: datasource.theme === 'light' ? "#1F2329" : "#FFFFFF" }}>加载中...（{progress.current}/{progress.total}）</div>
-            </div>
-        </div>)
-        : progress.notSupport 
-            ? (
-                <div style={{ width: '100%', height: '100%', display: 'grid', alignItems: 'center', justifyItems: 'center' }}>
-                    <div style={{ width: '100%', height: 'max-content', display: 'flex', flexDirection: 'column', alignItems: 'center', rowGap: '10px', justifyItems: 'center', flexWrap: 'wrap' }}>
-                        <Empty />
-                        <div style={{ 
-                            textAlign: 'center', 
-                            fontSize: '16px', 
-                            color: datasource.theme === 'light' ? "#1F2329" : "#FFFFFF",
-                            whiteSpace: 'normal',
-                            wordWrap: 'break-word',
-                            overflowWrap: 'break-word',
-                        }}>
-                            {t('暂不支持展示')}
-                        </div>
-                    </div>
-                </div>
-            ) 
-            : (<div>
-                <div className="flex h-full">
-                    <NineSquaresGrid/>
-                    {dashboard?.state === DashboardState.Create || dashboard?.state === DashboardState.Config ? (
-                        <ConfigPanel
-                            tables={datasource.tables}
-                            dataRanges={datasource.dataRanges[datasource.tableId]}
-                            isMultipleBase={isMultipleBase}
-                            bitableRef={bitableRef}
-                        />
-                    ) : null}
-                </div>
-            </div>)
+    if (isLoading) {
+        return <LoadingView progress={progress} theme={datasource.theme} />;
+    }
+    if (progress.notSupport) {
+        return <NotSupportedView theme={datasource.theme} />;
+    }
+    return <MainView dashboardState={dashboard?.state} datasource={datasource} isMultipleBase={isMultipleBase} bitableRef={bitableRef} />;
 }
 
 export default App
