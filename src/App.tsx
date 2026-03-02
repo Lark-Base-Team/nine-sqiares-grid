@@ -138,6 +138,7 @@ function App() {
         }
     }
 
+    // 依据当前配置内容，准备组件渲染数据
     async function initConfigData(id: string | null, baseToken?: string) {
         //LIGHT = "LIGHT", DARK = "DARK"
         if (!bitableRef.current) {
@@ -264,7 +265,7 @@ function App() {
                 dashboard?.getConfig().then((config) => {
                     const customConfig: any = config.customConfig
                     const dataConditions: IDataCondition[] = config.dataConditions
-                    // 主要处理 复制模版 custom config 中的数据不会被动态替换，导致复制模版获取的 table id 不对
+                    //  复制模版时， customConfig 中的数据不会被动态替换，这会导致复制模版获取的 table id 不对。这里手动做下同步
                     if (dataConditions.length > 0) {
                         const firstCondition = dataConditions[0];
                         if (firstCondition.tableId) {
