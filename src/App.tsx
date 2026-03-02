@@ -49,7 +49,7 @@ function App() {
 
     const dataHelper = new TableDataGroupHelper({ setProgress, bitableRef })
 
-    function configRenderData(tableId: string, fields: any[], config: IDatasourceConfigType): IDatasourceConfigType {
+    function configRenderData(fields: any[], config: IDatasourceConfigType): IDatasourceConfigType {
         const nextConfig: IDatasourceConfigType = {
             ...config,
             horizontalCategories: { ...config.horizontalCategories },
@@ -161,7 +161,7 @@ function App() {
             // config render data
             tableId = availableInfo.tableId;
             datasource.fields[availableInfo.tableId] = availableInfo.fields
-            nextConfig = configRenderData(availableInfo.tableId, availableInfo.fields, nextConfig)
+            nextConfig = configRenderData(availableInfo.fields, nextConfig)
         }
 
         console.log(baseConfig, nextConfig, '-----------prepare render data')
