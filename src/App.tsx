@@ -189,6 +189,9 @@ function App() {
             }))
         }
 
+        // 创建链路默认选中全部数据
+        if(!nextConfig.dataRange) nextConfig.dataRange = 'All';
+
         console.log('获取表数据范围: ', datasource.dataRanges);
         // 如果不是创建面板，则根据 自定义配置组装数据
         if (dashboard.state !== DashboardState.Create ||
