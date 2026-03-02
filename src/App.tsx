@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NineSquaresGrid } from "./components/nineSquaresGrid";
 import { ConfigPanel } from "./components/configPanel";
-import { base as baseSdk, dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, IDataCondition, ITable, bridge, IBase, IDashboard, workspace} from "@lark-base-open/js-sdk";
-import { useDatasourceConfigStore, useDatasourceStore, useTextConfigStore } from './store';
-import { TableDataGroupHelper, IDatasourceConfigCacheType } from "./utils/tableDataGroupHelper";
-import Icon, { IconDeleteStroked, IconPlus } from '@douyinfe/semi-icons';
+import { dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, IDataCondition, bridge, workspace} from "@lark-base-open/js-sdk";
+import { IDatasourceConfigType, useDatasourceConfigStore, useDatasourceStore, useTextConfigStore } from './store';
+import { TableDataGroupHelper } from "./utils/tableDataGroupHelper";
+import Icon from '@douyinfe/semi-icons';
 import IconLoading from './assets/icon_loading.svg?react';
 import { debounce } from 'lodash-es';
 import { t } from 'i18next';
@@ -19,26 +19,6 @@ function App() {
 
     // 样式配置数据
     const { textConfig, updateTextConfig } = useTextConfigStore((state) => state);
-
-    let datasourceConfigCache: IDatasourceConfigCacheType = {
-        tableId: '',
-        dataRange: '',
-        personnelField: '',
-        horizontalField: '',
-        horizontalCategories: {
-            left: [''],
-            middle: [''],
-            right: ['']
-        },
-
-        verticalField: '',
-        verticalCategories: {
-            up: [''],
-            middle: [''],
-            down: ['']
-        },
-        groupField: ''
-    };
 
     const [isLoading, setIsLoading] = useState(true)
     const [progress, setProgress] = useState<{ total: number; current: number; notSupport?: boolean }>({ total: 0, current: 0 });
@@ -69,77 +49,76 @@ function App() {
 
     const dataHelper = new TableDataGroupHelper({ setProgress, bitableRef })
 
-    function configRenderData(tableId: string, fields: any[]): void {
+    function configRenderData(tableId: string, fields: any[], config: IDatasourceConfigType): IDatasourceConfigType {
+        const nextConfig: IDatasourceConfigType = {
+            ...config,
+            horizontalCategories: { ...config.horizontalCategories },
+            verticalCategories: { ...config.verticalCategories },
+        };
+
         const userFields = fields.filter(field => field.type === 11)
         const userField: any = userFields[0]
-        datasourceConfig.personnelField = userField.id;
-        datasourceConfigCache.personnelField = userField.id
+        if (userField?.id) {
+            nextConfig.personnelField = userField.id;
+        }
+
         const optionFields = fields.filter(field => field.type === 3)
         const horizontalField: any = optionFields[0];
-        datasourceConfig.horizontalField = horizontalField.id
-        datasourceConfigCache.horizontalField = horizontalField.id
-        if (horizontalField.property?.options) {
+        if (horizontalField?.id) {
+            nextConfig.horizontalField = horizontalField.id
+        }
+        if (horizontalField?.property?.options) {
             let options = (horizontalField.property.options as any[]).map(item => ({ ...item, disabled: false }))
             if (options.length === 1) {
                 options[0].disabled = true
-                datasourceConfig.horizontalCategories.left = [options[0].id]
-                datasourceConfigCache.horizontalCategories.left = [options[0].id]
-                return;
+                nextConfig.horizontalCategories.left = [options[0].id]
+                return nextConfig;
             } else if (options.length === 2) {
                 options[0].disabled = true
-                datasourceConfig.horizontalCategories.left = [options[0].id]
-                datasourceConfigCache.horizontalCategories.left = [options[0].id]
+                nextConfig.horizontalCategories.left = [options[0].id]
                 options[1].disabled = true
-                datasourceConfig.horizontalCategories.middle = [options[1].id]
-                datasourceConfigCache.horizontalCategories.middle = [options[1].id]
-                return;
+                nextConfig.horizontalCategories.middle = [options[1].id]
+                return nextConfig;
             } else if (options.length >= 3) {
                 options[0].disabled = true
-                datasourceConfig.horizontalCategories.left = [options[0].id]
-                datasourceConfigCache.horizontalCategories.left = [options[0].id]
+                nextConfig.horizontalCategories.left = [options[0].id]
                 options[Math.floor(options.length / 2)].disabled = true
-                datasourceConfig.horizontalCategories.middle = [options[Math.floor(options.length / 2)].id]
-                datasourceConfigCache.horizontalCategories.middle = [options[Math.floor(options.length / 2)].id]
+                nextConfig.horizontalCategories.middle = [options[Math.floor(options.length / 2)].id]
                 options[options.length - 1].disabled = true
-                datasourceConfig.horizontalCategories.right = [options[options.length - 1].id]
-                datasourceConfigCache.horizontalCategories.right = [options[options.length - 1].id]
+                nextConfig.horizontalCategories.right = [options[options.length - 1].id]
             }
         }
 
         const verticalField: any = optionFields[1];
-        datasourceConfig.verticalField = verticalField.id
-        datasourceConfigCache.verticalField = verticalField.id
-        if (verticalField.property?.options) {
+        if (verticalField?.id) {
+            nextConfig.verticalField = verticalField.id
+        }
+        if (verticalField?.property?.options) {
             let options = (verticalField.property.options as any[]).map(item => ({ ...item, disabled: false }))
             if (options.length === 1) {
                 options[0].disabled = true
-                datasourceConfig.verticalCategories.up = [options[0].id]
-                datasourceConfigCache.verticalCategories.up = [options[0].id]
-                return;
+                nextConfig.verticalCategories.up = [options[0].id]
+                return nextConfig;
             } else if (options.length === 2) {
                 options[0].disabled = true
-                datasourceConfig.verticalCategories.up = [options[0].id]
-                datasourceConfigCache.verticalCategories.up = [options[0].id]
+                nextConfig.verticalCategories.up = [options[0].id]
                 options[1].disabled = true
-                datasourceConfig.verticalCategories.middle = [options[1].id]
-                datasourceConfigCache.verticalCategories.middle = [options[1].id]
-                return;
+                nextConfig.verticalCategories.middle = [options[1].id]
+                return nextConfig;
             } else if (options.length >= 3) {
                 options[0].disabled = true
-                datasourceConfig.verticalCategories.up = [options[0].id]
-                datasourceConfigCache.verticalCategories.up = [options[0].id]
+                nextConfig.verticalCategories.up = [options[0].id]
                 options[Math.floor(options.length / 2)].disabled = true
-                datasourceConfig.verticalCategories.middle = [options[Math.floor(options.length / 2)].id]
-                datasourceConfigCache.verticalCategories.middle = [options[Math.floor(options.length / 2)].id]
+                nextConfig.verticalCategories.middle = [options[Math.floor(options.length / 2)].id]
                 options[options.length - 1].disabled = true
-                datasourceConfig.verticalCategories.down = [options[options.length - 1].id]
-                datasourceConfigCache.verticalCategories.down = [options[options.length - 1].id]
+                nextConfig.verticalCategories.down = [options[options.length - 1].id]
             }
         }
+        return nextConfig;
     }
 
     // 依据当前配置内容，准备组件渲染数据
-    async function initConfigData(id: string | null, baseToken?: string) {
+    async function initConfigData(id: string | null, baseToken?: string, configSnapshot?: IDatasourceConfigType) {
         //LIGHT = "LIGHT", DARK = "DARK"
         if (!bitableRef.current) {
             return;
@@ -159,6 +138,13 @@ function App() {
          if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
             return;
         }
+        const baseConfig = configSnapshot ?? datasourceConfig;
+        let nextConfig: IDatasourceConfigType = {
+            ...baseConfig,
+            horizontalCategories: { ...baseConfig.horizontalCategories },
+            verticalCategories: { ...baseConfig.verticalCategories },
+        };
+
         let tableId = id ?? '';
         let tableList: any[] = [];
         if (isCreate || isConfig) {
@@ -175,12 +161,12 @@ function App() {
             // config render data
             tableId = availableInfo.tableId;
             datasource.fields[availableInfo.tableId] = availableInfo.fields
-            configRenderData(availableInfo.tableId, availableInfo.fields)
+            nextConfig = configRenderData(availableInfo.tableId, availableInfo.fields, nextConfig)
         }
-        console.log(datasourceConfig, datasourceConfigCache, '-----------prepare render data')
+
+        console.log(baseConfig, nextConfig, '-----------prepare render data')
         datasource.tableId = tableId;
-        datasourceConfig.tableId = tableId
-        datasourceConfigCache.tableId = tableId
+        nextConfig.tableId = tableId
 
         if (!datasource.fields[tableId] || datasource.fields[tableId].length === 0) {
             if (tableId) {
@@ -203,19 +189,19 @@ function App() {
             }))
         }
 
-        datasourceConfig.dataRange = 'All';
-        datasourceConfigCache.dataRange = 'All';
         console.log('获取表数据范围: ', datasource.dataRanges);
         // 如果不是创建面板，则根据 自定义配置组装数据
         if (dashboard.state !== DashboardState.Create ||
-            (datasourceConfig.tableId && datasourceConfig.personnelField && datasourceConfig.horizontalField && datasourceConfig.verticalField)
+            (nextConfig.tableId && nextConfig.personnelField && nextConfig.horizontalField && nextConfig.verticalField)
         ) {
             if (tableId) {
-                await dataHelper.prepareData(tableId, datasource, datasourceConfigCache)
+                await dataHelper.prepareData(tableId, datasource, nextConfig)
                 updateDatasource({ ...(datasource as any) })
             }
         }
-        updateDatasourceConfig({ ...datasourceConfigCache, baseToken })
+
+        const resolvedBaseToken = baseToken ?? nextConfig.baseToken;
+        updateDatasourceConfig({ ...nextConfig, baseToken: resolvedBaseToken })
         console.log('------------------------------------------------------数据已经准备好: ',datasource, new Date().toISOString())
         // 强制刷新
         setIsLoading(false)
@@ -275,13 +261,13 @@ function App() {
                             customConfig.datasourceConfig.baseToken = firstCondition.baseToken
                         }
                     }
-                    console.log('获取到 config start========：', config, textConfig, datasourceConfig, { ...datasourceConfig, ...customConfig.datasourceConfig });
-                    updateDatasourceConfig({ ...datasourceConfig, ...customConfig.datasourceConfig })
+                    const mergedDatasourceConfig = { ...datasourceConfig, ...customConfig.datasourceConfig } as IDatasourceConfigType;
+                    console.log('获取到 config start========：', config, textConfig, datasourceConfig, mergedDatasourceConfig);
+                    updateDatasourceConfig(mergedDatasourceConfig)
                     updateTextConfig({ ...textConfig, ...customConfig.textConfig })
                     setIsGetConfigReady(true);
-                    datasourceConfigCache = { ...datasourceConfig, ...customConfig.datasourceConfig }
-                    console.log('获取到 config end=====：', config, datasourceConfigCache);
-                    initConfigData(customConfig.datasourceConfig.tableId, customConfig.datasourceConfig.baseToken).then();
+                    console.log('获取到 config end=====：', config, mergedDatasourceConfig);
+                    initConfigData(mergedDatasourceConfig.tableId, mergedDatasourceConfig.baseToken, mergedDatasourceConfig).then();
                 })
             } else {
                  const getBaseToken = async () => {
@@ -303,7 +289,7 @@ function App() {
 
                 const initialBaseToken = await getBaseToken();
 
-                initConfigData(null, initialBaseToken).then();
+                initConfigData(null, initialBaseToken, { ...datasourceConfig, baseToken: initialBaseToken } as IDatasourceConfigType).then();
             }
         }
 
@@ -327,7 +313,7 @@ function App() {
                 ? await workspace.getBitable(datasourceConfig.baseToken!)
                 : bitableSdk;
             bitableRef.current = realBitable;
-            await initConfigData(null, datasourceConfig.baseToken);
+            await initConfigData(null, datasourceConfig.baseToken, datasourceConfig);
         })()
     }, [datasourceConfig.baseToken, isMultipleBase]);
 
