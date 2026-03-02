@@ -21,10 +21,20 @@ export interface IDatasourceConfigCacheType {
     groupField: string;
 }
 
+/**
+ * 九宫格数据准备与分组计算的工具类。
+ *
+ * - 负责：拉取表记录（可按 viewId/dataRange 过滤）、按横纵轴分类筛选、可选分组、计算展示数据结构。
+ * - 不负责：持久化配置、UI 交互。
+ */
 export class TableDataGroupHelper {
     setProgress: (props: { total: number; current: number; notSupport?: boolean }) => void;
     bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
 
+    /**
+     * @param props.setProgress 外部注入的进度回调，用于展示加载进度
+     * @param props.bitableRef 外部注入的 bitable sdk 引用（支持多 Base 切换）
+     */
     constructor(props: { 
         setProgress: (props: { total: number, current: number; notSupport?: boolean }) => void;
         bitableRef: React.MutableRefObject<typeof bitableSdk | null>;
@@ -33,11 +43,23 @@ export class TableDataGroupHelper {
         this.bitableRef = props.bitableRef;
     }
 
+    /**
+     * 判断字段类型是否在当前组件支持的范围内。
+     */
     supportedFiled(fieldType: number): Boolean {
         // 1 文本，3 单选  11 人员  19 查找引用  20公式
         return [1, 3, 11, 19, 20].some(type => type === fieldType);
     }
 
+    /**
+     * 在给定表列表中寻找一个可用于渲染九宫格的“可用表”。
+     *
+     * 规则：必须至少包含 1 个人员字段（type=11）且至少 2 个单选字段（type=3）。
+     *
+     * @param tableList 表列表（通常来自 base.getTableList() 的加工结果）
+     * @param index 从哪个下标开始查找（递归向后查找）
+     * @returns 找到则返回 { tableId, fields }，否则返回 undefined
+     */
     async findAvailableTableForRender(tableList: any[], index: number): Promise<{ tableId: string, fields: any[] } | undefined> {
         // 找个 有 type 3 单选  type 11 人员 字段的表，而且 type 3 的 字段大于等于 2，
         let result: { tableId: string, fields: any[] } | undefined = { tableId: '', fields: [] };
@@ -60,6 +82,12 @@ export class TableDataGroupHelper {
 
     }
 
+    /**
+     * 拉取指定表的记录。
+     *
+     * - 在配置态（DashboardState.Config/Create）下为了性能只取前 400 条。
+     * - 当 dataRange 不为空且不为 'All' 时，会将其作为 viewId 过滤（只取对应视图范围的数据）。
+     */
     async loadAllRecordsForTable(table: ITable, dataSourceConfig: IDatasourceConfigType): Promise<IRecord[]> {
         console.log('======loadAllRecordsForTable', table, dataSourceConfig)
         // 分页加载，每次加载 5000 条 直到加载完数据
@@ -98,6 +126,12 @@ export class TableDataGroupHelper {
     }
 
 
+    /**
+     * 对记录进行“可选分组”。
+     *
+     * - 未指定 groupField 或 groupTexts 为空时：返回一个默认分组（全部记录放在同一组）。
+     * - 指定 groupField 时：按 groupTexts 中的每个文本值，将记录筛选到对应分组。
+     */
     groupRecordsByInfo(records: IRecord[],
         groupField: any | null,
         groupTexts: string[]
@@ -121,6 +155,12 @@ export class TableDataGroupHelper {
         return groupList
     }
 
+    /**
+     * 生成分组维度的“可选分组文本列表”。
+     *
+     * - 单选字段（type=3）：取字段 options 的 name/text。
+     * - 其他字段：从记录里抽取去重后的 text。
+     */
     groupTextsFor(records: IRecord[],
         groupField: any | null
     ): string[] {
@@ -142,6 +182,11 @@ export class TableDataGroupHelper {
         return Object.keys(map);
     }
 
+    /**
+     * 根据字段类型，返回用于从单元格字段值中取“展示文本”的 key。
+     * - 人员字段：取 name
+     * - 其他字段：取 text
+     */
     fieldTextKey(type: number): string {
         if (type === 11) {
             // user
@@ -150,6 +195,14 @@ export class TableDataGroupHelper {
         return 'text'
     }
 
+    /**
+     * 将分组后的记录映射为九宫格要展示的数据结构。
+     *
+     * @param groupedRecords 分组后的记录列表
+     * @param personnelField 人员字段 meta，用于取人员名称
+     * @param totalRowCount 总记录数（用于计算百分比）
+     * @returns { list, total, percent }
+     */
     mapRecordByDisplayInfo(groupedRecords: { category: string, persons: IRecord[] }[],
         personnelField: any | null,
         totalRowCount: number
@@ -173,6 +226,16 @@ export class TableDataGroupHelper {
     }
 
 
+    /**
+     * 根据“横轴/竖轴”的分类选项，筛选出某一个格子对应的记录集合。
+     *
+     * @param allRecords 全量记录
+     * @param verticalField 竖轴字段 meta
+     * @param verticalType 竖轴位置（up/middle/down）
+     * @param horizontalField 横轴字段 meta
+     * @param horizontalType 横轴位置（left/middle/right）
+     * @param datasourceConfigCache 当前配置快照（包含横纵轴选项 id 列表）
+     */
     filterRecordsByInfo(allRecords: IRecord[],
         verticalField: any | null,
         verticalType: 'up' | 'middle' | 'down',
@@ -207,6 +270,18 @@ export class TableDataGroupHelper {
         return [...filteredRecord]
     }
 
+    /**
+     * 按当前配置快照准备九宫格渲染所需的全部数据。
+     *
+     * 主要步骤：
+     * 1) 拉取字段元信息与记录（可按 dataRange/viewId 过滤）
+     * 2) 找到人员字段、分组字段、横纵轴字段
+     * 3) 对 9 个格子分别筛选记录 -> 可选分组 -> 映射为展示结构
+     *
+     * @param tableId 表 ID
+     * @param datasource 运行时数据容器（会被写入各格子的统计结果）
+     * @param datasourceConfigCache 当前配置快照
+     */
     async prepareData(tableId: string, datasource: any,  datasourceConfigCache: any) {
         const base = this.bitableRef.current?.base || baseSdk;
         const table = await base.getTable(tableId);
@@ -263,4 +338,3 @@ export class TableDataGroupHelper {
         datasource.rightDownValue = this.mapRecordByDisplayInfo(rightDownGroupList, personField, allRecords.length)
     }
 }
-
