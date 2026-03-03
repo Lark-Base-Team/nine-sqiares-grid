@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, bridge, workspace} from "@lark-base-open/js-sdk";
 import { IDatasourceConfigType, useDatasourceConfigStore, useDatasourceStore, useTextConfigStore } from './store';
 import { TableDataGroupHelper } from "./utils/tableDataGroupHelper";
+import { deriveDatasourceConfigFromFields } from './utils/deriveDatasourceConfigFromFields';
 import { useDashboardBindings } from './hooks/useDashboardBindings';
 import { LoadingView, MainView, NotSupportedView } from './components/appViews';
 
@@ -43,74 +44,6 @@ function App() {
     }, []);
 
     const dataHelper = new TableDataGroupHelper({ setProgress, bitableRef })
-
-    function configRenderData(fields: any[], config: IDatasourceConfigType): IDatasourceConfigType {
-        const nextConfig: IDatasourceConfigType = {
-            ...config,
-            horizontalCategories: { ...config.horizontalCategories },
-            verticalCategories: { ...config.verticalCategories },
-        };
-
-        const userFields = fields.filter(field => field.type === 11)
-        const userField: any = userFields[0]
-        if (userField?.id) {
-            nextConfig.personnelField = userField.id;
-        }
-
-        const optionFields = fields.filter(field => field.type === 3)
-        const horizontalField: any = optionFields[0];
-        if (horizontalField?.id) {
-            nextConfig.horizontalField = horizontalField.id
-        }
-        if (horizontalField?.property?.options) {
-            let options = (horizontalField.property.options as any[]).map(item => ({ ...item, disabled: false }))
-            if (options.length === 1) {
-                options[0].disabled = true
-                nextConfig.horizontalCategories.left = [options[0].id]
-                return nextConfig;
-            } else if (options.length === 2) {
-                options[0].disabled = true
-                nextConfig.horizontalCategories.left = [options[0].id]
-                options[1].disabled = true
-                nextConfig.horizontalCategories.middle = [options[1].id]
-                return nextConfig;
-            } else if (options.length >= 3) {
-                options[0].disabled = true
-                nextConfig.horizontalCategories.left = [options[0].id]
-                options[Math.floor(options.length / 2)].disabled = true
-                nextConfig.horizontalCategories.middle = [options[Math.floor(options.length / 2)].id]
-                options[options.length - 1].disabled = true
-                nextConfig.horizontalCategories.right = [options[options.length - 1].id]
-            }
-        }
-
-        const verticalField: any = optionFields[1];
-        if (verticalField?.id) {
-            nextConfig.verticalField = verticalField.id
-        }
-        if (verticalField?.property?.options) {
-            let options = (verticalField.property.options as any[]).map(item => ({ ...item, disabled: false }))
-            if (options.length === 1) {
-                options[0].disabled = true
-                nextConfig.verticalCategories.up = [options[0].id]
-                return nextConfig;
-            } else if (options.length === 2) {
-                options[0].disabled = true
-                nextConfig.verticalCategories.up = [options[0].id]
-                options[1].disabled = true
-                nextConfig.verticalCategories.middle = [options[1].id]
-                return nextConfig;
-            } else if (options.length >= 3) {
-                options[0].disabled = true
-                nextConfig.verticalCategories.up = [options[0].id]
-                options[Math.floor(options.length / 2)].disabled = true
-                nextConfig.verticalCategories.middle = [options[Math.floor(options.length / 2)].id]
-                options[options.length - 1].disabled = true
-                nextConfig.verticalCategories.down = [options[options.length - 1].id]
-            }
-        }
-        return nextConfig;
-    }
 
     // 依据当前配置内容，准备组件渲染数据
     async function initConfigData(id: string | null, baseToken?: string, configSnapshot?: IDatasourceConfigType) {
@@ -156,7 +89,7 @@ function App() {
             // config render data
             tableId = availableInfo.tableId;
             datasource.fields[availableInfo.tableId] = availableInfo.fields
-            nextConfig = configRenderData(availableInfo.fields, nextConfig)
+            nextConfig = deriveDatasourceConfigFromFields(availableInfo.fields, nextConfig)
         }
 
         console.log(baseConfig, nextConfig, '-----------prepare render data')
