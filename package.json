@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "vitest",
+    "test:run": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -28,11 +30,13 @@
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.19",
+    "jsdom": "^25.0.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
     "typescript": "^5.2.2",
     "vite": "^5.2.0",
     "vite-plugin-svgr": "^4.2.0",
+    "vitest": "^2.1.8",
     "zustand": "^4.5.2"
   },
   "packageManager": "pnpm@6.23.6+sha512.1fa3c8ccee16db383626a9acd77b92e54ddf53cc8175693cad772924b8ecfe29fe9eeb60540f061a56ac100236780893a5cf456095240a495b2786bf337e8dd3"
