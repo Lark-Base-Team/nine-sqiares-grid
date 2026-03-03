@@ -70,7 +70,9 @@ function App() {
             dashboardState: dashboard?.state,
         });
         updateTheme(theme.theme.toLocaleLowerCase())
-         if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
+         // 说明：非 Create 态下，如果已经传入 configSnapshot，说明配置已就绪，
+         // 不应被 isGetConfigReady 的异步更新竞态阻塞，否则会导致持续 Loading。
+         if(!configSnapshot && !isGetConfigReady && dashboard?.state !== DashboardState.Create) {
             return;
         }
         const baseConfig = configSnapshot ?? datasourceConfig;

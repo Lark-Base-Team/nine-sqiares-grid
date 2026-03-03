@@ -55,7 +55,7 @@
 
 ## 测试策略与约定
 
-- 优先覆盖纯逻辑：`src/utils/tableDataGroupHelper.tsx`。
+- 优先覆盖纯逻辑：如`src/utils/tableDataGroupHelper.tsx`。
 - 本项目已接入 `Vitest`，建议：
   - 单元测试覆盖 `groupTextsFor` / `groupRecordsByInfo` / `filterRecordsByInfo` / `mapRecordByDisplayInfo`
   - 集成测试覆盖 `prepareData`（mock `base.getTable()`、mock `loadAllRecordsForTable()`，断言 9 格写入结果）
