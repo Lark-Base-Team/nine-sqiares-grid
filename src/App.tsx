@@ -152,7 +152,6 @@ function App() {
     }
 
     useDashboardBindings({
-        dashboard,
         bitableRef,
         isMultipleBase,
         datasource,

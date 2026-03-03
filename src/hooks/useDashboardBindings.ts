@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { debounce } from 'lodash-es';
-import { DashboardState, workspace as workspaceSdk } from '@lark-base-open/js-sdk';
+import { DashboardState, dashboard as dashboardSdk, workspace as workspaceSdk } from '@lark-base-open/js-sdk';
 
 import type { IDatasourceConfigType, ITextConfigType } from '../store';
 
@@ -18,7 +18,6 @@ type DashboardLike = {
  * 目标：把 App.tsx 中与「宿主事件订阅/配置拉取」相关的代码集中到一个 hook，减少组件体积。
  */
 export function useDashboardBindings(params: {
-  dashboard: DashboardLike;
   bitableRef: React.MutableRefObject<any>;
   isMultipleBase: boolean | undefined;
   datasource: any;
@@ -32,7 +31,6 @@ export function useDashboardBindings(params: {
   onThemeUpdate: (theme: string) => void;
 }) {
   const {
-    dashboard,
     bitableRef,
     isMultipleBase,
     datasource,
@@ -45,6 +43,9 @@ export function useDashboardBindings(params: {
     initConfigData,
     onThemeUpdate,
   } = params;
+
+  // 多 Base 场景下优先用 bitableRef.current?.dashboard；默认用 SDK 导出的实例；
+  const dashboard: DashboardLike = bitableRef.current?.dashboard ?? dashboardSdk;
 
   // 避免闭包捕获旧值：用 ref 保持最新 store 状态
   const datasourceConfigRef = useRef<IDatasourceConfigType>(datasourceConfig);
@@ -155,4 +156,3 @@ export function useDashboardBindings(params: {
     dashboard?.onDataChange?.(() => debouncedGetConfig(3));
   }, [bitableRef, dashboard, initConfigData, isMultipleBase, setIsGetConfigReady, updateDatasourceConfig, updateTextConfig]);
 }
-
