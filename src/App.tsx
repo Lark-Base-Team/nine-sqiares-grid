@@ -2,9 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { dashboard as dashboardSdk, DashboardState, bitable as bitableSdk, bridge, workspace} from "@lark-base-open/js-sdk";
 import { IDatasourceConfigType, useDatasourceConfigStore, useDatasourceStore, useTextConfigStore } from './store';
 import { TableDataGroupHelper } from "./utils/tableDataGroupHelper";
+import { createConsoleLogger } from './utils/consoleLogger';
 import { deriveDatasourceConfigFromFields } from './utils/deriveDatasourceConfigFromFields';
 import { useDashboardBindings } from './hooks/useDashboardBindings';
 import { LoadingView, MainView, NotSupportedView } from './components/appViews';
+
+// 说明：这里的前缀使用组件语义（Root），避免与 dashboard 概念混淆。
+const logger = createConsoleLogger('[nine-sqiares-grid][Root]');
 
 function App() {
 
@@ -61,7 +65,10 @@ function App() {
         } else {
             datasource.theme = 'dark'
         }
-        console.log(theme, '++++++++++++++++++')
+        logger.info('theme.resolved', {
+            theme: theme?.theme,
+            dashboardState: dashboard?.state,
+        });
         updateTheme(theme.theme.toLocaleLowerCase())
          if(!isGetConfigReady && dashboard?.state !== DashboardState.Create) {
             return;
@@ -79,12 +86,21 @@ function App() {
             const tableIdList = await base.getTableList();
             // console.log('获取表 id 列表: ',tableIdList)
             tableList = await Promise.all(getTableList(tableIdList));
-            console.log('获取所有表: ', tableList);
+            logger.info('tables.loaded', {
+                dashboardState: dashboard?.state,
+                tableCount: tableList.length,
+            });
             datasource.tables = [...tableList];
         }
         const isTableValid = id && tableList.find(t => t.tableId === id);
         const availableInfo = !isTableValid ? await dataHelper.findAvailableTableForRender(tableList, 0) : undefined;
-        console.log(availableInfo, 'availableInfo---------')
+        if (!isTableValid && availableInfo?.tableId) {
+            logger.warn('table.fallback', {
+                requestedTableId: id ?? '',
+                resolvedTableId: availableInfo.tableId,
+                fieldsCount: availableInfo.fields.length,
+            });
+        }
         if (availableInfo && availableInfo.tableId) {
             // config render data
             tableId = availableInfo.tableId;
@@ -92,14 +108,23 @@ function App() {
             nextConfig = deriveDatasourceConfigFromFields(availableInfo.fields, nextConfig)
         }
 
-        console.log(baseConfig, nextConfig, '-----------prepare render data')
+        logger.info('config.snapshot', {
+            tableId: nextConfig.tableId,
+            dataRange: nextConfig.dataRange,
+            personnelField: nextConfig.personnelField,
+            horizontalField: nextConfig.horizontalField,
+            verticalField: nextConfig.verticalField,
+            groupField: nextConfig.groupField,
+        });
         datasource.tableId = tableId;
         nextConfig.tableId = tableId
 
         if (!datasource.fields[tableId] || datasource.fields[tableId].length === 0) {
             if (tableId) {
                 const table = await base.getTable(tableId);
-                console.log('获取当前选中的表', table)
+                logger.info('table.loaded', {
+                    tableId,
+                });
                 const fields = await table.getFieldMetaList()
                 datasource.fields[tableId] = [...fields];
             } else {
@@ -107,7 +132,10 @@ function App() {
             }
         }
 
-        console.log('获取选中表的所有字段信息: ', datasource.fields);
+        logger.info('fields.resolved', {
+            tableId,
+            fieldsCount: datasource.fields?.[tableId]?.length ?? 0,
+        });
         if (tableId) {
             const tableDataRange: any[] = await dashboard.getTableDataRange(tableId)
             datasource.dataRanges[tableId] = tableDataRange.map(item => ({
@@ -120,7 +148,11 @@ function App() {
         // 创建链路默认选中全部数据
         if(!nextConfig.dataRange) nextConfig.dataRange = 'All';
 
-        console.log('获取表数据范围: ', datasource.dataRanges);
+        logger.info('dataRanges.resolved', {
+            tableId,
+            dataRangeCount: datasource.dataRanges?.[tableId]?.length ?? 0,
+            selectedDataRange: nextConfig.dataRange,
+        });
         // 如果不是创建面板，则根据 自定义配置组装数据
         if (dashboard.state !== DashboardState.Create ||
             (nextConfig.tableId && nextConfig.personnelField && nextConfig.horizontalField && nextConfig.verticalField)
@@ -133,16 +165,18 @@ function App() {
 
         const resolvedBaseToken = baseToken ?? nextConfig.baseToken;
         updateDatasourceConfig({ ...nextConfig, baseToken: resolvedBaseToken })
-        console.log('------------------------------------------------------数据已经准备好: ',datasource, new Date().toISOString())
+        logger.info('data.prepared', {
+            tableId,
+            totalRowCount: datasource.totalRowCount,
+        });
         // 强制刷新
         setIsLoading(false)
         hasInit.current = true;
 
         // 渲染完通知 宿主
         setTimeout(() => {
-            console.log('------------------------------------------------------渲染完成 ');
             dashboard.setRendered().then( res => {
-                console.log('set rendered: ',res);
+                logger.info('rendered.notified', { res });
             })
         }, 1000);
     }
